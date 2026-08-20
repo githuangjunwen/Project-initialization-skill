@@ -25,7 +25,8 @@ function uniquePush(list, value) {
 function validateEvidencePath(path) {
   const normalized = path.replaceAll('\\', '/');
   if (
-    !normalized || isAbsolute(path) || /^[A-Za-z]:/.test(normalized) ||
+    !normalized || normalized === '.' || isAbsolute(path) ||
+    /^[A-Za-z]:/.test(normalized) ||
     normalized.split('/').includes('..')
   ) {
     throw new ProjectMapError(
@@ -34,6 +35,33 @@ function validateEvidencePath(path) {
     );
   }
   return normalized.replace(/^\.\//, '');
+}
+
+export async function linkSource(
+  root,
+  nodeId,
+  { sourceId, excerpt = '' },
+  now = new Date().toISOString()
+) {
+  const index = await loadIndex(root);
+  if (!index.sources[sourceId]) {
+    throw new ProjectMapError('SOURCE_NOT_FOUND', `Unknown source: ${sourceId}`);
+  }
+  const node = await loadNode(root, nodeId);
+  const existing = node.source_links.find(link => link.source_id === sourceId);
+  if (existing && existing.excerpt === excerpt) return node;
+  if (existing) existing.excerpt = excerpt;
+  else {
+    node.source_links.push({
+      source_id: sourceId, relation: 'derived-from', excerpt
+    });
+  }
+  node.updated_at = now;
+  await saveNodeAndIndex(root, node, index);
+  const { markImpact } = await import('./impact.mjs');
+  await markImpact(root, nodeId, ['source_links'], now);
+  await invalidateDerived(root);
+  return node;
 }
 
 export async function linkEvidence(

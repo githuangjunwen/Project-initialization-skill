@@ -116,3 +116,59 @@ export async function confirmDecision(root, id, {
   await invalidateDerived(root);
   return decision;
 }
+
+export async function supersedeDecision(root, id, {
+  replacementId,
+  authority,
+  evidence,
+  now = new Date().toISOString()
+}) {
+  if (!CONFIRMATION_AUTHORITIES.has(authority)) {
+    throw new ProjectMapError(
+      'INVALID_CONFIRMATION_AUTHORITY',
+      'Only user or authority-source may supersede a decision'
+    );
+  }
+  if (!evidence?.trim()) {
+    throw new ProjectMapError(
+      'CONFIRMATION_EVIDENCE_REQUIRED', 'Supersession evidence is required'
+    );
+  }
+  if (id === replacementId) {
+    throw new ProjectMapError(
+      'INVALID_DECISION_REPLACEMENT', 'A decision cannot supersede itself'
+    );
+  }
+  const [decision, replacement] = await Promise.all([
+    loadDecision(root, id), loadDecision(root, replacementId)
+  ]);
+  if (decision.status === 'superseded') {
+    throw new ProjectMapError(
+      'INVALID_DECISION_TRANSITION', 'Decision is already superseded'
+    );
+  }
+  if (decision.node_id !== replacement.node_id) {
+    throw new ProjectMapError(
+      'INVALID_DECISION_REPLACEMENT',
+      'Replacement decision must belong to the same node'
+    );
+  }
+  decision.history.push({
+    from: decision.status,
+    to: 'superseded',
+    authority,
+    evidence: evidence.trim(),
+    replacement_id: replacementId,
+    at: now
+  });
+  decision.status = 'superseded';
+  decision.superseded_by = replacementId;
+  decision.updated_at = now;
+  await writeJsonAtomic(
+    join(projectMapPaths(root).decisions, `${id}.json`), decision
+  );
+  const { markImpact } = await import('./impact.mjs');
+  await markImpact(root, decision.node_id, ['confirmed_decision'], now);
+  await invalidateDerived(root);
+  return decision;
+}

@@ -1,11 +1,12 @@
 import { join } from 'node:path';
-import { unlink } from 'node:fs/promises';
+import { readFile, unlink } from 'node:fs/promises';
 import { ProjectMapError } from './errors.mjs';
 import { sha256 } from './hash.mjs';
 import { stableStringify, writeJsonAtomic } from './json.mjs';
 import { loadDecision } from './decisions.mjs';
 import { listAncestors, loadNode } from './nodes.mjs';
 import { projectMapPaths } from './paths.mjs';
+import { loadIndex } from './store.mjs';
 
 function blocker(code, nodeId, details = {}) {
   return { code, node_id: nodeId, ...details };
@@ -26,7 +27,10 @@ function planBlockers(node, ancestors, decisions) {
     blockers.push(blocker('EMPTY_ACCEPTANCE_CRITERION', node.id));
   }
   for (const decision of decisions) {
-    if (decision.critical && decision.status !== 'confirmed') {
+    if (
+      decision.critical &&
+      !['confirmed', 'superseded'].includes(decision.status)
+    ) {
       blockers.push(blocker(
         'CRITICAL_DECISION_UNCONFIRMED', node.id, { decision_id: decision.id }
       ));
@@ -50,11 +54,22 @@ function planBlockers(node, ancestors, decisions) {
   return blockers;
 }
 
-async function removeStamp(root, stage) {
+async function removeStamp(root, stage, nodeId) {
   const path = join(projectMapPaths(root).gates, `current-${stage}.ready`);
-  await unlink(path).catch(error => {
-    if (error.code !== 'ENOENT') throw error;
-  });
+  try {
+    const stamp = JSON.parse(await readFile(path, 'utf8'));
+    if (stamp.node_id !== nodeId) return;
+    await unlink(path);
+  } catch (error) {
+    if (error.code === 'ENOENT') return;
+    if (error instanceof SyntaxError) {
+      await unlink(path).catch(unlinkError => {
+        if (unlinkError.code !== 'ENOENT') throw unlinkError;
+      });
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function evaluateReadiness(
@@ -110,7 +125,9 @@ export async function evaluateReadiness(
     blockers,
     state_sha256: sha256(stableStringify(state))
   };
-  if (!result.ready && removeBlockedStamp) await removeStamp(root, stage);
+  if (!result.ready && removeBlockedStamp) {
+    await removeStamp(root, stage, nodeId);
+  }
   return result;
 }
 
@@ -122,6 +139,13 @@ export async function writeReadinessStamp(
   if (!result.ready) {
     throw new ProjectMapError(
       'READINESS_BLOCKED', 'Cannot write a readiness stamp for a blocked node'
+    );
+  }
+  const index = await loadIndex(root);
+  if (index.current_node_id !== result.node_id) {
+    throw new ProjectMapError(
+      'READINESS_NODE_NOT_FOCUSED',
+      `Focus ${result.node_id} before writing its readiness stamp`
     );
   }
   const path = join(

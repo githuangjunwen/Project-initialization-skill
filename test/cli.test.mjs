@@ -114,10 +114,21 @@ test('decision confirmation and readiness preserve the user authority boundary',
     'decide', 'D-001', '--confirm', '--authority', 'user',
     '--evidence', 'approved here', '--json'
   ], io), 0);
+  assert.equal(await run(['focus', 'F-001', '--json'], io), 0);
   assert.equal(await run([
     'readiness', 'F-001', '--stage', 'plan', '--json'
   ], io), 0);
   assert.equal(JSON.parse(output.pop()).data.ready, true);
+
+  await run([
+    'decision', 'create', 'F-001', '--category', 'permission',
+    '--question', 'Who may delete now?', '--proposal', 'Owner', '--json'
+  ], io);
+  assert.equal(await run([
+    'decide', 'D-001', '--supersede-by', 'D-002', '--authority', 'user',
+    '--evidence', 'policy changed', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.decision.status, 'superseded');
 });
 
 test('focus changes current work while status remains read-only', async () => {
@@ -145,6 +156,11 @@ test('link, trace, impact, check, and rebuild expose audit controls', async () =
   await run(['add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'], io);
   await run(['add', 'epic', '--parent', 'P-001', '--title', 'One', '--json'], io);
   await run(['add', 'feature', '--parent', 'E-001', '--title', 'Login', '--json'], io);
+  await run(['capture', '--text', 'clarification', '--json'], io);
+  assert.equal(await run([
+    'link', 'F-001', '--source', 'SRC-002',
+    '--source-excerpt', 'clarification', '--json'
+  ], io), 0);
   await run(['link', 'F-001', '--gsd-requirement', 'REQ-1', '--json'], io);
   assert.equal(await run(['trace', 'F-001', '--json'], io), 0);
   assert.equal(

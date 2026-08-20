@@ -1,7 +1,7 @@
 import { access, readdir, readFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { focusNode } from './context.mjs';
-import { loadDecision } from './decisions.mjs';
+import { CONFIRMATION_AUTHORITIES, loadDecision } from './decisions.mjs';
 import { ProjectMapError } from './errors.mjs';
 import { sha256 } from './hash.mjs';
 import { stableStringify } from './json.mjs';
@@ -162,6 +162,18 @@ export async function checkProject(root) {
       }
       try {
         const decision = await loadDecision(root, decisionId);
+        if (
+          decision.schema_version !== 1 ||
+          decision.id !== decisionId ||
+          !['open', 'proposed', 'confirmed', 'superseded'].includes(decision.status) ||
+          typeof decision.category !== 'string' ||
+          typeof decision.question !== 'string' || !decision.question.trim() ||
+          typeof decision.critical !== 'boolean' ||
+          (decision.status === 'confirmed' &&
+            !CONFIRMATION_AUTHORITIES.has(decision.confirmation?.authority))
+        ) {
+          errors.push(issue('DECISION_SCHEMA_INVALID', { decision_id: decisionId }));
+        }
         if (decision.node_id !== node.id) {
           errors.push(issue('DECISION_NODE_MISMATCH', {
             node_id: node.id, decision_id: decisionId
@@ -240,6 +252,13 @@ export async function checkProject(root) {
     if (!await exists(stampPath)) continue;
     try {
       const stamp = JSON.parse(await readFile(stampPath, 'utf8'));
+      if (stamp.node_id !== index.current_node_id) {
+        errors.push(issue('READINESS_STAMP_NODE_MISMATCH', {
+          stage,
+          node_id: stamp.node_id,
+          current_node_id: index.current_node_id
+        }));
+      }
       const result = await evaluateReadiness(root, stamp.node_id, stage, {
         removeBlockedStamp: false
       });
@@ -271,6 +290,7 @@ const DERIVED_ERROR_CODES = new Set([
   'GENERATED_FILE_MISSING',
   'GENERATED_HASH_MISMATCH',
   'READINESS_STAMP_HASH_MISMATCH',
+  'READINESS_STAMP_NODE_MISMATCH',
   'READINESS_STAMP_INVALID'
 ]);
 

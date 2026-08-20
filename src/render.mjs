@@ -11,9 +11,27 @@ export function renderCurrent(context) {
   const ancestors = context.must_read.nodes.slice(0, -1);
   const openDecisions = context.open_decisions ?? [];
   const compactManifest = {
-    must_read: context.must_read.nodes.map(node => node.id),
-    may_need: context.may_need.children.map(node => node.id),
-    do_not_read_by_default: context.do_not_read_by_default.nodes
+    must_read: {
+      nodes: context.must_read.nodes.map(
+        node => `.planning/project-map/nodes/${node.id}.json`
+      ),
+      decisions: context.must_read.confirmed_decisions.map(
+        decision => `.planning/project-map/decisions/${decision.id}.json`
+      )
+    },
+    may_need: {
+      nodes: context.may_need.children.map(
+        node => `.planning/project-map/nodes/${node.id}.json`
+      ),
+      sources: context.may_need.source_files.map(
+        path => `.planning/project-map/${path}`
+      ),
+      code: context.may_need.code,
+      tests: context.may_need.tests
+    },
+    do_not_read_by_default: context.do_not_read_by_default.nodes.map(
+      id => `.planning/project-map/nodes/${id}.json`
+    )
   };
   return `# Current Node
 

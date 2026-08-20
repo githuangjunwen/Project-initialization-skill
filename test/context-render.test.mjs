@@ -62,6 +62,11 @@ test('project map exposes current work and exactly one next action', async () =>
   assert.match(text, /帮助团队安全推进产品/);
   assert.equal(result.contextPath.endsWith('CURRENT.md'), true);
   assert.equal((await loadIndex(repo)).current_node_id, 'E-001');
+  const current = await readFile(
+    join(repo, '.planning/project-map/CURRENT.md'), 'utf8'
+  );
+  assert.match(current, /\.planning\/project-map\/nodes\/P-001\.json/);
+  assert.match(current, /\.planning\/project-map\/nodes\/E-002\.json/);
 });
 
 test('status context can inspect another node without changing focus', async () => {

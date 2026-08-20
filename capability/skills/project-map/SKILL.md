@@ -21,13 +21,13 @@ Treat Project Map files as durable project memory and the CLI as their only writ
 
 ## Workflow
 
-1. Locate the repository root and verify `.planning/project-map/index.json` exists.
+1. Locate the repository root, verify `.planning/project-map/index.json` exists, and confirm the project-local `project-map` executable is available. If the executable is absent, stop and point to project-local setup; do not edit storage directly.
 2. For resume or refinement intent, run `project-map focus <ID> --json`.
 3. Read `CURRENT.md` and only the paths/IDs in its `must_read` set. Treat `may_need` as optional and do not load excluded branches by default.
 4. If details are missing, use `references/discovery.md`; write facts, proposals, acceptance criteria, and decisions through CLI commands. Never turn an AI proposal into a confirmed business rule.
 5. Run `project-map readiness <ID> --stage plan|code --json`.
 6. Never invoke GSD planning or execution when readiness is blocked. Resolve the reported blocker or ask the user for the missing authority.
 7. When ready, read `references/gsd-handoff.md`, verify the installed GSD command surface, and recommend one exact next command.
-8. After code changes, link only observed code/tests, run `project-map impact <ID> --json` when semantics changed, then run `project-map check --json`.
+8. After code changes, link only observed code/tests. For requirement changes, capture and link the new source before running `project-map impact <ID> --json`. Then run `project-map check --json`.
 
 Never edit sources, canonical node/decision JSON, generated maps, or readiness stamps by hand. Never rewrite unrelated nodes to make documents appear synchronized.

@@ -5,9 +5,12 @@ import { join } from 'node:path';
 import { createFixtureRepo, fixedNow } from './helpers/repo.mjs';
 import { initializeStore } from '../src/store.mjs';
 import { addAcceptanceCriterion, addNode, updateNode } from '../src/nodes.mjs';
-import { confirmDecision, createDecision, loadDecision } from '../src/decisions.mjs';
+import {
+  confirmDecision, createDecision, loadDecision, supersedeDecision
+} from '../src/decisions.mjs';
 import { evaluateReadiness, writeReadinessStamp } from '../src/readiness.mjs';
 import { linkGsd } from '../src/trace.mjs';
+import { focusNode } from '../src/context.mjs';
 
 async function repoWithFeature() {
   const repo = await createFixtureRepo();
@@ -90,6 +93,7 @@ test('plan readiness reports deterministic structural blockers', async () => {
 
 test('readiness stamp contains a state hash and blocked recheck removes it', async () => {
   const repo = await repoWithFeature();
+  await focusNode(repo, 'F-001', fixedNow);
   const ready = await evaluateReadiness(repo, 'F-001', 'plan');
   const stampPath = await writeReadinessStamp(repo, ready, fixedNow);
   const stamp = JSON.parse(await readFile(stampPath, 'utf8'));
@@ -102,6 +106,15 @@ test('readiness stamp contains a state hash and blocked recheck removes it', asy
   await assert.rejects(access(join(
     repo, '.planning/project-map/gates/current-plan.ready'
   )));
+});
+
+test('a readiness stamp cannot be written for a node that is not focused', async () => {
+  const repo = await repoWithFeature();
+  const ready = await evaluateReadiness(repo, 'F-001', 'plan');
+  await assert.rejects(
+    writeReadinessStamp(repo, ready, fixedNow),
+    error => error.code === 'READINESS_NODE_NOT_FOCUSED'
+  );
 });
 
 test('story and task verification details can satisfy the code gate', async () => {
@@ -130,4 +143,40 @@ test('story and task verification details can satisfy the code gate', async () =
   const result = await evaluateReadiness(repo, task.id, 'code');
   assert.equal(result.ready, true);
   assert.deepEqual(result.blockers, []);
+});
+
+test('a user can supersede a decision without erasing its history', async () => {
+  const repo = await repoWithFeature();
+  const original = await createDecision(repo, {
+    nodeId: 'F-001', category: 'approval', question: 'Who approves?',
+    proposal: 'Admin', actor: 'ai', now: fixedNow
+  });
+  await confirmDecision(repo, original.id, {
+    authority: 'user', evidence: 'Initial policy', now: fixedNow
+  });
+  const replacement = await createDecision(repo, {
+    nodeId: 'F-001', category: 'approval', question: 'Who approves now?',
+    proposal: 'Owner', actor: 'ai', now: fixedNow
+  });
+
+  await assert.rejects(
+    supersedeDecision(repo, original.id, {
+      replacementId: replacement.id,
+      authority: 'ai', evidence: 'model update', now: fixedNow
+    }),
+    error => error.code === 'INVALID_CONFIRMATION_AUTHORITY'
+  );
+  await supersedeDecision(repo, original.id, {
+    replacementId: replacement.id,
+    authority: 'user', evidence: 'Policy changed', now: fixedNow
+  });
+  const old = await loadDecision(repo, original.id);
+  assert.equal(old.status, 'superseded');
+  assert.equal(old.history.at(-1).replacement_id, replacement.id);
+
+  const readiness = await evaluateReadiness(repo, 'F-001', 'plan');
+  assert.deepEqual(
+    readiness.blockers.map(item => item.decision_id),
+    [replacement.id]
+  );
 });

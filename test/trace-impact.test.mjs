@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixedNow } from './helpers/repo.mjs';
 import { loadNode, updateNode } from '../src/nodes.mjs';
-import { linkEvidence, traceNode } from '../src/trace.mjs';
+import { linkEvidence, linkSource, traceNode } from '../src/trace.mjs';
+import { captureSource } from '../src/sources.mjs';
 import { reviewImpact } from '../src/impact.mjs';
 import { tracedFeatureRepo } from './helpers/traced-repo.mjs';
 
@@ -40,5 +41,24 @@ test('evidence paths must remain repository-relative', async () => {
   await assert.rejects(
     linkEvidence(repo, 'T-001', { kind: 'code', path: '../outside.js' }, fixedNow),
     error => error.code === 'INVALID_EVIDENCE_PATH'
+  );
+  await assert.rejects(
+    linkEvidence(repo, 'T-001', { kind: 'code', path: '.' }, fixedNow),
+    error => error.code === 'INVALID_EVIDENCE_PATH'
+  );
+});
+
+test('a later immutable source can be linked to an existing node', async () => {
+  const repo = await tracedFeatureRepo();
+  const source = await captureSource(repo, {
+    text: 'New clarification', origin: 'user', now: fixedNow
+  });
+  await linkSource(repo, 'F-001', {
+    sourceId: source.id, excerpt: 'New clarification'
+  }, fixedNow);
+  const trace = await traceNode(repo, 'F-001');
+  assert.deepEqual(
+    trace.forward.filter(edge => edge.kind === 'source').map(edge => edge.id),
+    ['SRC-001', 'SRC-002']
   );
 });

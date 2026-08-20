@@ -6,6 +6,7 @@ import { tracedFeatureRepo } from './helpers/traced-repo.mjs';
 import { checkProject, rebuildDerived } from '../src/check.mjs';
 import { focusNode } from '../src/context.mjs';
 import { linkEvidence, linkGsd } from '../src/trace.mjs';
+import { createDecision } from '../src/decisions.mjs';
 
 test('check detects canonical source tampering', async () => {
   const repo = await tracedFeatureRepo();
@@ -48,4 +49,22 @@ test('replacing a singleton GSD milestone keeps the reverse index consistent', a
   await linkGsd(repo, 'F-001', { kind: 'milestone', value: 'M2' });
   const result = await checkProject(repo);
   assert.equal(result.errors.some(error => error.code === 'GSD_REVERSE_MISMATCH'), false);
+});
+
+test('check rejects an invalid canonical decision state', async () => {
+  const repo = await tracedFeatureRepo();
+  const decision = await createDecision(repo, {
+    nodeId: 'F-001', category: 'product', question: 'Which mode?',
+    proposal: 'Simple', actor: 'ai'
+  });
+  const path = join(repo, '.planning/project-map/decisions', `${decision.id}.json`);
+  const data = JSON.parse(await readFile(path, 'utf8'));
+  data.status = 'invented';
+  await writeFile(path, JSON.stringify(data));
+
+  const result = await checkProject(repo);
+  assert.equal(
+    result.errors.some(error => error.code === 'DECISION_SCHEMA_INVALID'),
+    true
+  );
 });

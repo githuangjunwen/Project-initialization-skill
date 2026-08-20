@@ -15,10 +15,12 @@ Read this reference only while refining a focused Project, Epic, Feature, or Sto
 
 | Class | Meaning | Write action |
 | --- | --- | --- |
-| Sourced fact | Present in a captured source or confirmed parent | Link the source or inherit the parent trace |
+| Sourced fact | Present in a captured source or confirmed parent | `link <ID> --source <SRC-ID>` or inherit the parent trace |
 | Proposed rule | Plausible but not authorized | `decision create` with a proposal |
 | Open question | Required information is missing | `decision create` without a proposal |
 | Confirmed rule | User or authority source supplied evidence | `decide ... --confirm` |
+
+When a confirmed rule changes, create a replacement Decision and use `decide <old> --supersede-by <new>` with user or authority-source evidence. Never overwrite or erase the old history.
 
 Critical business rules are deletion, permission, approval, retention, billing, identity, security, privacy, compliance, and irreversible migration. AI may propose these rules but must not confirm them.
 

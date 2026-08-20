@@ -5,10 +5,12 @@ import { findProjectRoot } from './paths.mjs';
 import { captureSource } from './sources.mjs';
 import { initializeStore, loadIndex } from './store.mjs';
 import { addAcceptanceCriterion, addNode, updateNode } from './nodes.mjs';
-import { confirmDecision, createDecision } from './decisions.mjs';
+import {
+  confirmDecision, createDecision, supersedeDecision
+} from './decisions.mjs';
 import { evaluateReadiness, writeReadinessStamp } from './readiness.mjs';
 import { focusNode, resolveContext } from './context.mjs';
-import { linkEvidence, linkGsd, traceNode } from './trace.mjs';
+import { linkEvidence, linkGsd, linkSource, traceNode } from './trace.mjs';
 import { markImpact, reviewImpact } from './impact.mjs';
 import { checkProject, rebuildDerived } from './check.mjs';
 
@@ -195,25 +197,37 @@ async function decisionCommand(args, io) {
 async function decideCommand(args, io) {
   const id = args[0];
   const confirms = args.filter(argument => argument === '--confirm').length;
-  if (!id || id.startsWith('--') || confirms !== 1) {
+  if (!id || id.startsWith('--') || confirms > 1) {
     throw new ProjectMapError(
-      'INVALID_ARGUMENTS', 'Usage: decide <D-ID> --confirm [options]', 2
+      'INVALID_ARGUMENTS',
+      'Usage: decide <D-ID> --confirm|--supersede-by <D-ID> [options]',
+      2
     );
   }
   const options = parseOptions(
     args.slice(1).filter(argument => argument !== '--confirm'),
-    new Set(['--authority', '--evidence'])
+    new Set(['--authority', '--evidence', '--supersede-by'])
   );
-  if (!options['--authority'] || !options['--evidence']) {
+  const supersedes = Boolean(options['--supersede-by']);
+  if (
+    (confirms === 1) === supersedes ||
+    !options['--authority'] || !options['--evidence']
+  ) {
     throw new ProjectMapError(
-      'INVALID_ARGUMENTS', 'Missing --authority or --evidence', 2
+      'INVALID_ARGUMENTS',
+      'Choose exactly one action and provide --authority and --evidence',
+      2
     );
   }
   const root = await findProjectRoot(io.cwd);
-  const decision = await confirmDecision(root, id, {
-    authority: options['--authority'],
-    evidence: options['--evidence']
-  });
+  const input = {
+    authority: options['--authority'], evidence: options['--evidence']
+  };
+  const decision = supersedes
+    ? await supersedeDecision(root, id, {
+      ...input, replacementId: options['--supersede-by']
+    })
+    : await confirmDecision(root, id, input);
   return { decision };
 }
 
@@ -269,7 +283,7 @@ async function linkCommand(args, io) {
   }
   const allowed = new Set([
     '--gsd-requirement', '--gsd-milestone', '--gsd-phase', '--gsd-plan',
-    '--code', '--test', '--document'
+    '--code', '--test', '--document', '--source', '--source-excerpt'
   ]);
   const options = parseOptions(args.slice(1), allowed);
   if (Object.keys(options).length === 0) {
@@ -277,6 +291,22 @@ async function linkCommand(args, io) {
   }
   const root = await findProjectRoot(io.cwd);
   const links = [];
+  if (options['--source-excerpt'] && !options['--source']) {
+    throw new ProjectMapError(
+      'INVALID_ARGUMENTS', '--source-excerpt requires --source', 2
+    );
+  }
+  if (options['--source']) {
+    await linkSource(root, id, {
+      sourceId: options['--source'],
+      excerpt: options['--source-excerpt'] ?? ''
+    });
+    links.push({
+      kind: 'source',
+      id: options['--source'],
+      excerpt: options['--source-excerpt'] ?? ''
+    });
+  }
   for (const [option, kind] of [
     ['--gsd-requirement', 'requirement'],
     ['--gsd-milestone', 'milestone'],

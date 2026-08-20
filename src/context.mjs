@@ -46,7 +46,9 @@ export async function resolveContext(root, nodeId) {
   const relevantNodes = [...ancestors, current];
   const decisions = await decisionsFor(root, relevantNodes);
   const confirmed = decisions.filter(decision => decision.status === 'confirmed');
-  const open = decisions.filter(decision => decision.status !== 'confirmed');
+  const open = decisions.filter(
+    decision => !['confirmed', 'superseded'].includes(decision.status)
+  );
   const blockers = open
     .filter(decision => decision.critical)
     .map(decision => ({
@@ -104,7 +106,8 @@ async function projectSnapshot(root, context) {
     current_node: context.current_node,
     next_action: context.recommended_next_action,
     blocking_decisions: decisions.filter(
-      decision => decision.critical && decision.status !== 'confirmed'
+      decision => decision.critical &&
+        !['confirmed', 'superseded'].includes(decision.status)
     ),
     open_questions: questions,
     needs_review: nodes.filter(node => node.review.state === 'needs-review'),
