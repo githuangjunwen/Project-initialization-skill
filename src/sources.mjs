@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { ProjectMapError } from './errors.mjs';
 import { sha256 } from './hash.mjs';
 import { assertConfined, projectMapPaths } from './paths.mjs';
-import { loadIndex, saveIndex } from './store.mjs';
+import { invalidateDerived, loadIndex, saveIndex } from './store.mjs';
 
 const RAW_DELIMITER = '\n## Raw input\n\n';
 
@@ -90,6 +90,7 @@ export async function captureSource(root, {
     captured_at: source.captured_at
   };
   await saveIndex(root, index);
+  await invalidateDerived(root);
   return source;
 }
 

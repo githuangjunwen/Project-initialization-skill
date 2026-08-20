@@ -64,3 +64,28 @@ test('init requires exactly one source input', async () => {
   assert.equal(code, 2);
   assert.equal(JSON.parse(output.join('')).error.code, 'INVALID_ARGUMENTS');
 });
+
+test('add and node update manage the recursive tree', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = { cwd: repo, stdout: value => output.push(value), stderr: () => {} };
+  await run(['init', '--project-title', 'Demo', '--text', 'idea', '--json'], io);
+
+  assert.equal(await run([
+    'add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.node.id, 'P-001');
+  assert.equal(await run([
+    'add', 'epic', '--parent', 'P-001', '--title', 'Auth', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.node.id, 'E-001');
+
+  assert.equal(await run([
+    'node', 'update', 'E-001', '--summary', 'Login boundary',
+    '--status', 'exploring', '--json'
+  ], io), 0);
+  assert.deepEqual(
+    JSON.parse(output.pop()).data.changed_fields,
+    ['status', 'summary']
+  );
+});

@@ -1,5 +1,5 @@
-import { access, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { access, mkdir, unlink } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { ProjectMapError } from './errors.mjs';
 import { readJson, writeJsonAtomic } from './json.mjs';
 import { projectMapPaths } from './paths.mjs';
@@ -31,6 +31,24 @@ export async function loadIndex(root) {
 
 export async function saveIndex(root, index) {
   await writeJsonAtomic(projectMapPaths(root).index, index);
+}
+
+export async function saveNodeAndIndex(root, node, index) {
+  const paths = projectMapPaths(root);
+  await writeJsonAtomic(join(paths.nodes, `${node.id}.json`), node);
+  await saveIndex(root, index);
+}
+
+export async function invalidateDerived(root) {
+  const paths = projectMapPaths(root);
+  await Promise.all([
+    paths.current,
+    paths.projectMap,
+    join(paths.gates, 'current-plan.ready'),
+    join(paths.gates, 'current-code.ready')
+  ].map(path => unlink(path).catch(error => {
+    if (error.code !== 'ENOENT') throw error;
+  })));
 }
 
 export async function initializeStore(root, {

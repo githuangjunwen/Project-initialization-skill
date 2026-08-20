@@ -4,12 +4,13 @@ import { ProjectMapError, toErrorPayload } from './errors.mjs';
 import { findProjectRoot } from './paths.mjs';
 import { captureSource } from './sources.mjs';
 import { initializeStore } from './store.mjs';
+import { addNode, updateNode } from './nodes.mjs';
 
 function emitJson(io, value) {
   io.stdout(`${JSON.stringify(value)}\n`);
 }
 
-function parseOptions(args, allowed) {
+function parseOptions(args, allowed, repeatable = new Set()) {
   const values = {};
   for (let index = 0; index < args.length; index += 1) {
     const key = args[index];
@@ -24,12 +25,17 @@ function parseOptions(args, allowed) {
         'INVALID_ARGUMENTS', `Missing value for ${key}`, 2
       );
     }
-    if (Object.hasOwn(values, key)) {
+    if (Object.hasOwn(values, key) && !repeatable.has(key)) {
       throw new ProjectMapError(
         'INVALID_ARGUMENTS', `Option may only be used once: ${key}`, 2
       );
     }
-    values[key] = value;
+    if (repeatable.has(key)) {
+      values[key] ??= [];
+      values[key].push(value);
+    } else {
+      values[key] = value;
+    }
     index += 1;
   }
   return values;
@@ -81,9 +87,60 @@ async function captureCommand(args, io) {
   return { source };
 }
 
+async function addCommand(args, io) {
+  const type = args[0];
+  if (!type || type.startsWith('--')) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Missing node type', 2);
+  }
+  const options = parseOptions(
+    args.slice(1),
+    new Set(['--parent', '--title', '--source']),
+    new Set(['--source'])
+  );
+  if (!options['--title']) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Missing --title', 2);
+  }
+  const root = await findProjectRoot(io.cwd);
+  const node = await addNode(root, {
+    type,
+    parentId: options['--parent'] ?? null,
+    title: options['--title'],
+    sourceIds: options['--source'] ?? []
+  });
+  return { node };
+}
+
+async function nodeCommand(args, io) {
+  const operation = args[0];
+  const id = args[1];
+  if (operation !== 'update' || !id || id.startsWith('--')) {
+    throw new ProjectMapError(
+      'INVALID_ARGUMENTS', 'Usage: node update <ID> [options]', 2
+    );
+  }
+  const options = parseOptions(
+    args.slice(2), new Set(['--title', '--summary', '--status'])
+  );
+  if (Object.keys(options).length === 0) {
+    throw new ProjectMapError(
+      'INVALID_ARGUMENTS', 'At least one update field is required', 2
+    );
+  }
+  const patch = Object.fromEntries(Object.entries({
+    title: options['--title'],
+    summary: options['--summary'],
+    status: options['--status']
+  }).filter(([, value]) => value !== undefined));
+  const root = await findProjectRoot(io.cwd);
+  const result = await updateNode(root, id, patch);
+  return { node: result.node, changed_fields: result.changedFields };
+}
+
 const commands = {
   init: initCommand,
-  capture: captureCommand
+  capture: captureCommand,
+  add: addCommand,
+  node: nodeCommand
 };
 
 export async function run(argv, io) {
