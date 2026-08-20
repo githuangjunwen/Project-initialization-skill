@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { run } from '../src/cli.mjs';
 import { assertConfined } from '../src/paths.mjs';
+import { createFixtureRepo } from './helpers/repo.mjs';
 
 test('unknown command exits 2 with stable JSON error', async () => {
   const stdout = [];
@@ -26,4 +27,40 @@ test('path confinement rejects paths outside project-map storage', () => {
     () => assertConfined('/tmp/repo/.planning/project-map', '/tmp/outside'),
     error => error.code === 'PATH_OUTSIDE_PROJECT_MAP'
   );
+});
+
+test('init and capture accept inline source text', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = {
+    cwd: repo,
+    stdout: value => output.push(value),
+    stderr: () => {}
+  };
+
+  assert.equal(await run([
+    'init', '--project-title', 'Demo', '--text', 'first', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.source.id, 'SRC-001');
+
+  assert.equal(await run([
+    'capture', '--text', 'second', '--origin', 'user-note', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.source.id, 'SRC-002');
+});
+
+test('init requires exactly one source input', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const code = await run([
+    'init', '--project-title', 'Demo', '--text', 'one',
+    '--source', 'idea.txt', '--json'
+  ], {
+    cwd: repo,
+    stdout: value => output.push(value),
+    stderr: () => {}
+  });
+
+  assert.equal(code, 2);
+  assert.equal(JSON.parse(output.join('')).error.code, 'INVALID_ARGUMENTS');
 });

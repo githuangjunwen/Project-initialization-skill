@@ -240,30 +240,29 @@ Initial `index.json`:
   "counters": {"P": 0, "E": 0, "F": 0, "S": 0, "T": 0, "SRC": 1, "D": 0},
   "nodes": {},
   "sources": {
-    "SRC-001": {"path": "sources/SRC-001.md", "sha256": "the lower-case hex returned by sha256(rawSource)", "origin": "user"}
+    "SRC-001": {"path": "sources/SRC-001.md", "sha256": "the lower-case hex returned by sha256(rawSource)", "raw_bytes": 0, "origin": "user"}
   },
   "gsd_reverse": {},
   "generation": {"project_map_sha256": null, "current_sha256": null}
 }
 ```
 
-Source file format must be:
+Source files use a metadata header followed by the raw body through end-of-file:
 
-````md
+```md
 # SRC-001
 
 - Captured: 2026-08-20T00:00:00.000Z
 - Origin: user
+- Raw-Bytes: exact UTF-8 byte length
 - SHA-256: the lower-case hex returned by sha256(rawSource)
 
 ## Raw input
 
-```text
-the exact unmodified raw input bytes
+the exact unmodified raw input continues to end-of-file
 ```
-````
 
-Compute the hash before adding the envelope. `captureSource` allocates a new ID and opens the file with `flag:'wx'`; no update-source operation is added.
+There is deliberately no closing fence: the input may contain arbitrary Markdown fences. Compute the byte length and hash before adding the envelope. `captureSource` allocates a new ID and opens the file with `flag:'wx'`; no update-source operation is added.
 
 - [ ] **Step 4: Wire `init` and `capture` commands**
 
