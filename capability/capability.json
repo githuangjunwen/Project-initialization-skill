@@ -1,0 +1,37 @@
+{
+  "id": "project-map",
+  "role": "feature",
+  "version": "0.1.0",
+  "title": "Project Map",
+  "description": "Adds recursive requirements, focused resume context, decision gates, and trace links around the GSD phase loop.",
+  "tier": "standard",
+  "requires": [],
+  "engines": {
+    "gsd": ">=1.6.0 <2.0.0"
+  },
+  "runtimeCompat": {
+    "supported": [
+      "codex"
+    ],
+    "unsupported": [],
+    "notes": {
+      "codex": "MVP is verified only against the Codex runtime projection."
+    }
+  },
+  "skills": [
+    "project-map"
+  ],
+  "agents": [],
+  "hooks": [],
+  "config": {},
+  "steps": [],
+  "contributions": [],
+  "gates": [],
+  "license": "MIT",
+  "keywords": [
+    "requirements",
+    "traceability",
+    "context",
+    "project-management"
+  ]
+}
