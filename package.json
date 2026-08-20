@@ -9,7 +9,13 @@
   "bin": {
     "project-map": "bin/project-map.mjs"
   },
+  "files": [
+    "bin",
+    "src",
+    "capability"
+  ],
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check bin/project-map.mjs && node --test test/*.test.mjs"
   }
 }
