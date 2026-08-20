@@ -85,7 +85,7 @@ README.md
 - Produces: `readJson(path)`, `writeJsonAtomic(path, value)`, `stableStringify(value)`.
 - Produces: `sha256(text)`.
 
-- [ ] **Step 1: Write failing CLI and confinement tests**
+- [x] **Step 1: Write failing CLI and confinement tests**
 
 ```js
 // test/cli.test.mjs
@@ -108,13 +108,13 @@ test('unknown command exits 2 with stable JSON error', async () => {
 
 Add a second test that calls `assertConfined('/tmp/repo', '/tmp/outside')` and expects error code `PATH_OUTSIDE_PROJECT_MAP`.
 
-- [ ] **Step 2: Run the tests and confirm the expected import failure**
+- [x] **Step 2: Run the tests and confirm the expected import failure**
 
 Run: `node --test test/cli.test.mjs`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `src/cli.mjs`.
 
-- [ ] **Step 3: Implement typed errors, stable JSON, hashing, paths, and dispatch**
+- [x] **Step 3: Implement typed errors, stable JSON, hashing, paths, and dispatch**
 
 ```js
 // src/errors.mjs
@@ -154,7 +154,7 @@ export async function writeJsonAtomic(path, value) {
 
 Implement `run()` as a command table. Unknown commands throw `ProjectMapError('UNKNOWN_COMMAND', ..., 2)`. In `--json` mode emit exactly `{ok:false,error:{code,message}}`; otherwise write the message to stderr.
 
-- [ ] **Step 4: Add executable entry and package scripts**
+- [x] **Step 4: Add executable entry and package scripts**
 
 ```js
 #!/usr/bin/env node
@@ -169,13 +169,13 @@ process.exitCode = await run(process.argv.slice(2), {
 
 `package.json` must declare `"type":"module"`, `"engines":{"node":">=18"}`, `"bin":{"project-map":"bin/project-map.mjs"}`, and `"test":"node --test test/*.test.mjs"`.
 
-- [ ] **Step 5: Run the focused tests**
+- [x] **Step 5: Run the focused tests**
 
 Run: `node --test test/cli.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the foundation**
+- [x] **Step 6: Commit the foundation**
 
 ```bash
 git add package.json bin/project-map.mjs src/errors.mjs src/paths.mjs src/json.mjs src/hash.mjs src/cli.mjs test/helpers/repo.mjs test/cli.test.mjs
@@ -199,7 +199,7 @@ git commit -m "feat: add project map cli foundation"
 - Produces: `verifySources(root) -> {ok, errors}`.
 - Produces: `loadIndex(root)` and `saveIndex(root, index)`.
 
-- [ ] **Step 1: Write failing initialization and tamper tests**
+- [x] **Step 1: Write failing initialization and tamper tests**
 
 ```js
 test('init preserves raw bytes and refuses overwrite', async () => {
@@ -222,13 +222,13 @@ test('check detects a modified source body', async () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 Run: `node --test test/sources.test.mjs`
 
 Expected: FAIL because `src/sources.mjs` does not exist.
 
-- [ ] **Step 3: Implement the initial index and source envelope**
+- [x] **Step 3: Implement the initial index and source envelope**
 
 Initial `index.json`:
 
@@ -240,42 +240,41 @@ Initial `index.json`:
   "counters": {"P": 0, "E": 0, "F": 0, "S": 0, "T": 0, "SRC": 1, "D": 0},
   "nodes": {},
   "sources": {
-    "SRC-001": {"path": "sources/SRC-001.md", "sha256": "the lower-case hex returned by sha256(rawSource)", "origin": "user"}
+    "SRC-001": {"path": "sources/SRC-001.md", "sha256": "the lower-case hex returned by sha256(rawSource)", "raw_bytes": 0, "origin": "user"}
   },
   "gsd_reverse": {},
   "generation": {"project_map_sha256": null, "current_sha256": null}
 }
 ```
 
-Source file format must be:
+Source files use a metadata header followed by the raw body through end-of-file:
 
-````md
+```md
 # SRC-001
 
 - Captured: 2026-08-20T00:00:00.000Z
 - Origin: user
+- Raw-Bytes: exact UTF-8 byte length
 - SHA-256: the lower-case hex returned by sha256(rawSource)
 
 ## Raw input
 
-```text
-the exact unmodified raw input bytes
+the exact unmodified raw input continues to end-of-file
 ```
-````
 
-Compute the hash before adding the envelope. `captureSource` allocates a new ID and opens the file with `flag:'wx'`; no update-source operation is added.
+There is deliberately no closing fence: the input may contain arbitrary Markdown fences. Compute the byte length and hash before adding the envelope. `captureSource` allocates a new ID and opens the file with `flag:'wx'`; no update-source operation is added.
 
-- [ ] **Step 4: Wire `init` and `capture` commands**
+- [x] **Step 4: Wire `init` and `capture` commands**
 
 `init` requires `--project-title` and exactly one of `--source <file>` or `--text <value>`. `capture` requires exactly one of those input forms. Both support `--origin`, defaulting to `user`.
 
-- [ ] **Step 5: Run source and CLI tests**
+- [x] **Step 5: Run source and CLI tests**
 
 Run: `node --test test/sources.test.mjs test/cli.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit immutable source storage**
+- [x] **Step 6: Commit immutable source storage**
 
 ```bash
 git add src/store.mjs src/sources.mjs src/cli.mjs test/sources.test.mjs
@@ -299,7 +298,7 @@ git commit -m "feat: preserve immutable project sources"
 - Produces: `updateNode(root, id, patch) -> {node, changedFields}`.
 - Produces: `loadNode(root, id)`, `listChildren(root, id)`, `listAncestors(root, id)`.
 
-- [ ] **Step 1: Write failing hierarchy tests**
+- [x] **Step 1: Write failing hierarchy tests**
 
 ```js
 test('allocates stable IDs and permits an incomplete tree', async () => {
@@ -323,13 +322,13 @@ test('rejects skipped levels and duplicate project roots', async () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 Run: `node --test test/nodes.test.mjs`
 
 Expected: FAIL because `src/nodes.mjs` does not exist.
 
-- [ ] **Step 3: Implement node validation and ID allocation**
+- [x] **Step 3: Implement node validation and ID allocation**
 
 Use exact maps:
 
@@ -341,7 +340,7 @@ export const NODE_STATUS = ['idea', 'exploring', 'specified', 'planned', 'implem
 
 Every node uses the schema from the design spec. For non-Project nodes, inherit traceability from the parent but do not copy source text. Save the node before updating the index only through a storage transaction helper that writes both temporary files and renames the node first, index last.
 
-- [ ] **Step 4: Invalidate derived artifacts on every mutation**
+- [x] **Step 4: Invalidate derived artifacts on every mutation**
 
 Add `invalidateDerived(root, affectedNodeIds)` to delete only these recoverable files when present:
 
@@ -354,17 +353,17 @@ Add `invalidateDerived(root, affectedNodeIds)` to delete only these recoverable 
 
 It must never delete canonical source, node, decision, index, or event files.
 
-- [ ] **Step 5: Wire `add` and `node update` commands**
+- [x] **Step 5: Wire `add` and `node update` commands**
 
 `add` supports `--parent`, `--title`, repeated `--source`, and `--json`. `node update <ID>` supports `--title`, `--summary`, and `--status`; unsupported fields exit with `INVALID_PATCH_FIELD`.
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run: `node --test test/nodes.test.mjs test/sources.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit the tree model**
+- [x] **Step 7: Commit the tree model**
 
 ```bash
 git add src/model.mjs src/nodes.mjs src/store.mjs src/cli.mjs test/nodes.test.mjs
@@ -389,7 +388,7 @@ git commit -m "feat: add recursive project requirement tree"
 - Produces: `evaluateReadiness(root, nodeId, stage) -> ReadinessResult`.
 - Produces: `writeReadinessStamp(root, result) -> string`.
 
-- [ ] **Step 1: Write failing decision-boundary tests**
+- [x] **Step 1: Write failing decision-boundary tests**
 
 ```js
 test('AI proposal cannot become confirmed without authority', async () => {
@@ -413,13 +412,13 @@ test('critical proposed decision blocks feature planning', async () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 Run: `node --test test/decisions-readiness.test.mjs`
 
 Expected: FAIL because decision modules do not exist.
 
-- [ ] **Step 3: Implement decision state and confirmation history**
+- [x] **Step 3: Implement decision state and confirmation history**
 
 Use exact critical categories:
 
@@ -433,7 +432,7 @@ export const CONFIRMATION_AUTHORITIES = new Set(['user', 'authority-source']);
 
 When `category` is in this set, force `critical:true`. Confirmation appends `{from:'proposed',to:'confirmed',authority,evidence,at}` and never removes prior history.
 
-- [ ] **Step 4: Implement exact readiness blockers**
+- [x] **Step 4: Implement exact readiness blockers**
 
 Plan blockers:
 
@@ -460,17 +459,17 @@ MISSING_GSD_PLAN
 
 Write a readiness stamp only when `ready:true`. The stamp JSON contains `node_id`, `stage`, `state_sha256`, and `checked_at`. Failed evaluation removes the matching current stamp.
 
-- [ ] **Step 5: Wire `decision create`, `decide`, `ac add`, and `readiness` commands**
+- [x] **Step 5: Wire `decision create`, `decide`, `ac add`, and `readiness` commands**
 
 `decide <D-ID> --confirm` requires `--authority user|authority-source` and `--evidence`. `readiness` exits `0` when ready and `3` when blocked.
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run: `node --test test/decisions-readiness.test.mjs test/nodes.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit the decision gate**
+- [x] **Step 7: Commit the decision gate**
 
 ```bash
 git add src/decisions.mjs src/readiness.mjs src/nodes.mjs src/cli.mjs test/decisions-readiness.test.mjs
@@ -493,7 +492,7 @@ git commit -m "feat: enforce confirmed business decisions"
 - Produces: `renderProjectMap(snapshot) -> string`.
 - Produces: `focusNode(root, nodeId) -> {contextPath, nextAction}`.
 
-- [ ] **Step 1: Write failing progressive-loading tests**
+- [x] **Step 1: Write failing progressive-loading tests**
 
 ```js
 test('focus includes ancestors and direct children but excludes sibling bodies', async () => {
@@ -514,13 +513,13 @@ test('project map exposes current work and one next action', async () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 Run: `node --test test/context-render.test.mjs`
 
 Expected: FAIL because context modules do not exist.
 
-- [ ] **Step 3: Implement the bounded context manifest**
+- [x] **Step 3: Implement the bounded context manifest**
 
 The return value must have this stable top-level shape:
 
@@ -538,23 +537,23 @@ The return value must have this stable top-level shape:
 
 The resolver must never read a sibling node file to build `must_read`; sibling IDs and summaries come from `index.json` only.
 
-- [ ] **Step 4: Implement deterministic Markdown renderers**
+- [x] **Step 4: Implement deterministic Markdown renderers**
 
 `CURRENT.md` headings: `Current Node`, `Why It Exists`, `Ancestor Constraints`, `Confirmed Decisions`, `Open Decisions`, `Children`, `GSD Handoff`, `Evidence`, `Context Manifest`, `Recommended Next Action`.
 
 `PROJECT-MAP.md` headings: `Original Motivation`, `Tree`, `Progress`, `Current Work`, `Next Action`, `Blocking Decisions`, `Open Questions`, `Needs Review`, `Artifact Health`.
 
-- [ ] **Step 5: Wire `focus` and `status` commands**
+- [x] **Step 5: Wire `focus` and `status` commands**
 
 `focus <ID>` sets `current_node_id`, generates both Markdown files, and prints the recommended next action. `status [ID]` is read-only and does not change current focus.
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run: `node --test test/context-render.test.mjs test/nodes.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit context and map generation**
+- [x] **Step 7: Commit context and map generation**
 
 ```bash
 git add src/context.mjs src/render.mjs src/cli.mjs test/context-render.test.mjs
@@ -581,7 +580,7 @@ git commit -m "feat: generate focused context and project map"
 - Produces: `reviewImpact(root, nodeId, {authority, note, now})`.
 - Produces: `checkProject(root) -> AuditResult` and `rebuildDerived(root)`.
 
-- [ ] **Step 1: Write failing trace and impact tests**
+- [x] **Step 1: Write failing trace and impact tests**
 
 ```js
 test('trace returns source through test evidence', async () => {
@@ -601,19 +600,19 @@ test('changing an epic marks descendants and evidence for review', async () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 Run: `node --test test/trace-impact.test.mjs test/check.test.mjs`
 
 Expected: FAIL because trace and audit modules do not exist.
 
-- [ ] **Step 3: Implement explicit trace edge construction**
+- [x] **Step 3: Implement explicit trace edge construction**
 
 Supported evidence kinds are `code`, `test`, and `document`. Paths must be repository-relative, cannot contain `..`, and do not need to exist when first linked; `check` reports missing evidence as `EVIDENCE_PATH_MISSING`.
 
 GSD links support `requirement`, `milestone`, `phase`, and `plan`. Update `index.gsd_reverse` for reverse queries without copying full node content.
 
-- [ ] **Step 4: Implement impact propagation on semantic fields**
+- [x] **Step 4: Implement impact propagation on semantic fields**
 
 Trigger fields are exactly:
 
@@ -626,23 +625,23 @@ export const IMPACT_FIELDS = new Set([
 
 For each descendant, append a deduplicated reason containing `changed_node`, `affected_id`, `path`, `reason`, and `detected_at`. Do not mutate descriptions, criteria, decisions, GSD artifacts, code, or tests.
 
-- [ ] **Step 5: Implement comprehensive check and rebuild**
+- [x] **Step 5: Implement comprehensive check and rebuild**
 
 `checkProject` validates source hashes, JSON schemas, ID/index parity, one Project root, parent types, acyclic ancestry, source references, decision references, GSD reverse mappings, evidence paths, generated-file hashes, and readiness-stamp hashes.
 
 `rebuildDerived` may regenerate only `CURRENT.md`, `PROJECT-MAP.md`, `index.generation`, and valid current readiness stamps. It must refuse to reconstruct missing canonical nodes or sources.
 
-- [ ] **Step 6: Wire `link`, `trace`, `impact`, `impact review`, `check`, and `rebuild`**
+- [x] **Step 6: Wire `link`, `trace`, `impact`, `impact review`, `check`, and `rebuild`**
 
 `check --json` returns `{ok, errors, warnings, stats}`. Structural or integrity errors exit `1`; warnings alone exit `0`. `impact review` requires `--authority user|authority-source` and `--note`.
 
-- [ ] **Step 7: Run focused tests**
+- [x] **Step 7: Run focused tests**
 
 Run: `node --test test/trace-impact.test.mjs test/check.test.mjs test/decisions-readiness.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit trace and impact controls**
+- [x] **Step 8: Commit trace and impact controls**
 
 ```bash
 git add src/trace.mjs src/impact.mjs src/check.mjs src/nodes.mjs src/cli.mjs test/trace-impact.test.mjs test/check.test.mjs
@@ -666,7 +665,7 @@ git commit -m "feat: add traceability and change impact audit"
 - Produces: one GSD Capability with Skill stem `project-map`.
 - Produces: natural-language routing for `推进 <ID>`.
 
-- [ ] **Step 1: Write failing manifest and Skill-surface tests**
+- [x] **Step 1: Write failing manifest and Skill-surface tests**
 
 ```js
 test('capability exposes one project-map skill and no internal command module', async () => {
@@ -686,13 +685,13 @@ test('skill routes Chinese resume intent through focus before GSD handoff', asyn
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 Run: `node --test test/capability.test.mjs`
 
 Expected: FAIL because the manifest does not exist.
 
-- [ ] **Step 3: Create the minimal third-party manifest**
+- [x] **Step 3: Create the minimal third-party manifest**
 
 ```json
 {
@@ -723,7 +722,7 @@ Expected: FAIL because the manifest does not exist.
 
 The empty loop arrays are intentional for MVP: GSD does not permit arbitrary third-party query modules, and loop-level declarative gates will be added only after a separate compatibility test proves the exact stable predicate contract.
 
-- [ ] **Step 4: Write the thin Skill router**
+- [x] **Step 4: Write the thin Skill router**
 
 The Skill frontmatter must name `project-map` and describe explicit triggers including `推进 E-002`, `完善 F-006`, project status, requirement changes, and preparing implementation. The body must enforce this sequence:
 
@@ -739,13 +738,15 @@ The Skill frontmatter must name `project-map` and describe explicit triggers inc
 
 Keep the three reference files independent: discovery questions, deterministic readiness interpretation, and GSD phase mapping. The main Skill links to them and does not duplicate their contents.
 
-- [ ] **Step 5: Validate with the repository tests**
+- [x] **Step 5: Validate with the repository tests**
 
 Run: `node --test test/capability.test.mjs`
 
 Expected: PASS.
 
 - [ ] **Step 6: Validate against an installed GSD Core 1.6+ in a disposable directory**
+
+Blocked on 2026-08-20 by the environment npm certificate chain (`UNABLE_TO_GET_ISSUER_CERT_LOCALLY`). The disposable install was attempted without weakening TLS verification; repeat in a certificate-healthy environment.
 
 Run after the user authorizes dependency installation:
 
@@ -756,7 +757,7 @@ gsd capability list
 
 Expected: installation succeeds; the list contains enabled `project-map`; Codex receives exactly one project-local `project-map` Skill. If the installed GSD CLI uses a different documented install flag spelling, use the version's `gsd capability --help` output and record that exact command in the verification report without changing the manifest semantics.
 
-- [ ] **Step 7: Commit the Capability**
+- [x] **Step 7: Commit the Capability**
 
 ```bash
 git add capability/capability.json capability/skills/project-map test/capability.test.mjs
@@ -776,7 +777,7 @@ git commit -m "feat: package thin gsd project map capability"
 - Consumes: all CLI and Capability interfaces.
 - Produces: an executable acceptance scenario and operator documentation.
 
-- [ ] **Step 1: Write the end-to-end acceptance test**
+- [x] **Step 1: Write the end-to-end acceptance test**
 
 The test must perform these exact actions through `run()`:
 
@@ -805,13 +806,13 @@ test('fuzzy idea progresses to traceable ready work without losing intent', asyn
 });
 ```
 
-- [ ] **Step 2: Run the test and fix only contract mismatches**
+- [x] **Step 2: Run the test and fix only contract mismatches**
 
 Run: `node --test test/e2e.test.mjs`
 
 Expected: PASS. If a mismatch appears, change the implementation to match the approved design; do not weaken the assertions.
 
-- [ ] **Step 3: Write operator documentation**
+- [x] **Step 3: Write operator documentation**
 
 `README.md` must include:
 
@@ -823,7 +824,7 @@ Expected: PASS. If a mismatch appears, change the implementation to match the ap
 - Explicit statement that Capability loop gates, CoDD, BMAD adapters, and external plugins are deferred.
 - Recovery procedure: run `project-map check`, then `project-map rebuild` only when canonical data passes.
 
-- [ ] **Step 4: Add full test and check scripts**
+- [x] **Step 4: Add full test and check scripts**
 
 `package.json` scripts:
 
@@ -836,13 +837,13 @@ Expected: PASS. If a mismatch appears, change the implementation to match the ap
 }
 ```
 
-- [ ] **Step 5: Run the complete verification suite**
+- [x] **Step 5: Run the complete verification suite**
 
 Run: `npm run check`
 
 Expected: all syntax checks and tests PASS with exit code `0`.
 
-- [ ] **Step 6: Scan for forbidden duplication and placeholders**
+- [x] **Step 6: Scan for forbidden duplication and placeholders**
 
 Run:
 
@@ -850,7 +851,7 @@ Run: `rg -n "Manage Project Requirements" src capability README.md test`
 
 Expected: no matches, proving the cancelled framework did not enter runtime or operator-facing artifacts.
 
-- [ ] **Step 7: Commit the verified MVP**
+- [x] **Step 7: Commit the verified MVP**
 
 ```bash
 git add README.md package.json test/e2e.test.mjs

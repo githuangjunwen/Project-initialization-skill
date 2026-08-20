@@ -1,0 +1,203 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { run } from '../src/cli.mjs';
+import { assertConfined } from '../src/paths.mjs';
+import { createFixtureRepo } from './helpers/repo.mjs';
+
+test('unknown command exits 2 with stable JSON error', async () => {
+  const stdout = [];
+  const stderr = [];
+
+  const code = await run(['unknown', '--json'], {
+    cwd: process.cwd(),
+    stdout: value => stdout.push(value),
+    stderr: value => stderr.push(value)
+  });
+
+  assert.equal(code, 2);
+  assert.equal(stderr.join(''), '');
+  assert.deepEqual(JSON.parse(stdout.join('')), {
+    ok: false,
+    error: { code: 'UNKNOWN_COMMAND', message: 'Unknown command: unknown' }
+  });
+});
+
+test('path confinement rejects paths outside project-map storage', () => {
+  assert.throws(
+    () => assertConfined('/tmp/repo/.planning/project-map', '/tmp/outside'),
+    error => error.code === 'PATH_OUTSIDE_PROJECT_MAP'
+  );
+});
+
+test('init and capture accept inline source text', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = {
+    cwd: repo,
+    stdout: value => output.push(value),
+    stderr: () => {}
+  };
+
+  assert.equal(await run([
+    'init', '--project-title', 'Demo', '--text', 'first', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.source.id, 'SRC-001');
+
+  assert.equal(await run([
+    'capture', '--text', 'second', '--origin', 'user-note', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.source.id, 'SRC-002');
+});
+
+test('init requires exactly one source input', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const code = await run([
+    'init', '--project-title', 'Demo', '--text', 'one',
+    '--source', 'idea.txt', '--json'
+  ], {
+    cwd: repo,
+    stdout: value => output.push(value),
+    stderr: () => {}
+  });
+
+  assert.equal(code, 2);
+  assert.equal(JSON.parse(output.join('')).error.code, 'INVALID_ARGUMENTS');
+});
+
+test('add and node update manage the recursive tree', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = { cwd: repo, stdout: value => output.push(value), stderr: () => {} };
+  await run(['init', '--project-title', 'Demo', '--text', 'idea', '--json'], io);
+
+  assert.equal(await run([
+    'add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.node.id, 'P-001');
+  assert.equal(await run([
+    'add', 'epic', '--parent', 'P-001', '--title', 'Auth', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.node.id, 'E-001');
+
+  assert.equal(await run([
+    'node', 'update', 'E-001', '--summary', 'Login boundary',
+    '--status', 'exploring', '--json'
+  ], io), 0);
+  assert.deepEqual(
+    JSON.parse(output.pop()).data.changed_fields,
+    ['status', 'summary']
+  );
+});
+
+test('decision confirmation and readiness preserve the user authority boundary', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = { cwd: repo, stdout: value => output.push(value), stderr: () => {} };
+  await run(['init', '--project-title', 'Demo', '--text', 'idea', '--json'], io);
+  await run(['add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'], io);
+  await run(['add', 'epic', '--parent', 'P-001', '--title', 'Auth', '--json'], io);
+  await run(['add', 'feature', '--parent', 'E-001', '--title', 'Delete', '--json'], io);
+  await run(['node', 'update', 'F-001', '--summary', 'Delete account', '--json'], io);
+  await run(['ac', 'add', 'F-001', '--text', 'Request is recorded', '--json'], io);
+  await run([
+    'decision', 'create', 'F-001', '--category', 'permission',
+    '--question', 'Who may delete?', '--proposal', 'Admin', '--json'
+  ], io);
+
+  assert.equal(await run([
+    'readiness', 'F-001', '--stage', 'plan', '--json'
+  ], io), 3);
+  assert.equal(JSON.parse(output.pop()).data.ready, false);
+
+  assert.equal(await run([
+    'decide', 'D-001', '--confirm', '--authority', 'user',
+    '--evidence', 'approved here', '--json'
+  ], io), 0);
+  assert.equal(await run(['focus', 'F-001', '--json'], io), 0);
+  assert.equal(await run([
+    'readiness', 'F-001', '--stage', 'plan', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.ready, true);
+
+  await run([
+    'decision', 'create', 'F-001', '--category', 'permission',
+    '--question', 'Who may delete now?', '--proposal', 'Owner', '--json'
+  ], io);
+  assert.equal(await run([
+    'decide', 'D-001', '--supersede-by', 'D-002', '--authority', 'user',
+    '--evidence', 'policy changed', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.decision.status, 'superseded');
+});
+
+test('focus changes current work while status remains read-only', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = { cwd: repo, stdout: value => output.push(value), stderr: () => {} };
+  await run(['init', '--project-title', 'Demo', '--text', 'idea', '--json'], io);
+  await run(['add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'], io);
+  await run(['add', 'epic', '--parent', 'P-001', '--title', 'One', '--json'], io);
+  await run(['add', 'epic', '--parent', 'P-001', '--title', 'Two', '--json'], io);
+
+  assert.equal(await run(['focus', 'E-001', '--json'], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.current_node.id, 'E-001');
+  assert.equal(await run(['status', 'E-002', '--json'], io), 0);
+  const status = JSON.parse(output.pop()).data;
+  assert.equal(status.current_node.id, 'E-002');
+  assert.equal(status.project_focus, 'E-001');
+});
+
+test('link, trace, impact, check, and rebuild expose audit controls', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = { cwd: repo, stdout: value => output.push(value), stderr: () => {} };
+  await run(['init', '--project-title', 'Demo', '--text', 'idea', '--json'], io);
+  await run(['add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'], io);
+  await run(['add', 'epic', '--parent', 'P-001', '--title', 'One', '--json'], io);
+  await run(['add', 'feature', '--parent', 'E-001', '--title', 'Login', '--json'], io);
+  await run(['capture', '--text', 'clarification', '--json'], io);
+  assert.equal(await run([
+    'link', 'F-001', '--source', 'SRC-002',
+    '--source-excerpt', 'clarification', '--json'
+  ], io), 0);
+  await run(['link', 'F-001', '--gsd-requirement', 'REQ-1', '--json'], io);
+  assert.equal(await run(['trace', 'F-001', '--json'], io), 0);
+  assert.equal(
+    JSON.parse(output.pop()).data.forward.some(edge => edge.kind === 'gsd-requirement'),
+    true
+  );
+  assert.equal(await run(['impact', 'E-001', '--json'], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.affected.length, 1);
+  assert.equal(await run([
+    'impact', 'review', 'F-001', '--authority', 'user', '--note', 'checked', '--json'
+  ], io), 0);
+  assert.equal(await run(['focus', 'F-001', '--json'], io), 0);
+  assert.equal(await run(['check', '--json'], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.ok, true);
+  assert.equal(await run(['rebuild', '--json'], io), 0);
+});
+
+test('node update captures story verification and repeated task test steps', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = { cwd: repo, stdout: value => output.push(value), stderr: () => {} };
+  await run(['init', '--project-title', 'Demo', '--text', 'idea', '--json'], io);
+  await run(['add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'], io);
+  await run(['add', 'epic', '--parent', 'P-001', '--title', 'E', '--json'], io);
+  await run(['add', 'feature', '--parent', 'E-001', '--title', 'F', '--json'], io);
+  await run(['add', 'story', '--parent', 'F-001', '--title', 'S', '--json'], io);
+  await run(['add', 'task', '--parent', 'S-001', '--title', 'T', '--json'], io);
+
+  assert.equal(await run([
+    'node', 'update', 'S-001', '--verification-method', 'Run scenario', '--json'
+  ], io), 0);
+  assert.equal(await run([
+    'node', 'update', 'T-001', '--completion-condition', 'All green',
+    '--test-step', 'Unit test', '--test-step', 'Integration test', '--json'
+  ], io), 0);
+  assert.deepEqual(
+    JSON.parse(output.pop()).data.node.test_steps,
+    ['Unit test', 'Integration test']
+  );
+});

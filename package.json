@@ -1,0 +1,21 @@
+{
+  "name": "project-map-capability",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "project-map": "bin/project-map.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "capability"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check bin/project-map.mjs && node --test test/*.test.mjs"
+  }
+}

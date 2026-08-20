@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Map"
+  short_description: "Recursive requirements and GSD handoff"
+  default_prompt: "Use $project-map to resume E-002 and determine the next safe GSD action."
