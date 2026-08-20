@@ -119,3 +119,20 @@ test('decision confirmation and readiness preserve the user authority boundary',
   ], io), 0);
   assert.equal(JSON.parse(output.pop()).data.ready, true);
 });
+
+test('focus changes current work while status remains read-only', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = { cwd: repo, stdout: value => output.push(value), stderr: () => {} };
+  await run(['init', '--project-title', 'Demo', '--text', 'idea', '--json'], io);
+  await run(['add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'], io);
+  await run(['add', 'epic', '--parent', 'P-001', '--title', 'One', '--json'], io);
+  await run(['add', 'epic', '--parent', 'P-001', '--title', 'Two', '--json'], io);
+
+  assert.equal(await run(['focus', 'E-001', '--json'], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.current_node.id, 'E-001');
+  assert.equal(await run(['status', 'E-002', '--json'], io), 0);
+  const status = JSON.parse(output.pop()).data;
+  assert.equal(status.current_node.id, 'E-002');
+  assert.equal(status.project_focus, 'E-001');
+});

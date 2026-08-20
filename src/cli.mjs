@@ -3,10 +3,11 @@ import { resolve } from 'node:path';
 import { ProjectMapError, toErrorPayload } from './errors.mjs';
 import { findProjectRoot } from './paths.mjs';
 import { captureSource } from './sources.mjs';
-import { initializeStore } from './store.mjs';
+import { initializeStore, loadIndex } from './store.mjs';
 import { addAcceptanceCriterion, addNode, updateNode } from './nodes.mjs';
 import { confirmDecision, createDecision } from './decisions.mjs';
 import { evaluateReadiness, writeReadinessStamp } from './readiness.mjs';
+import { focusNode, resolveContext } from './context.mjs';
 
 function emitJson(io, value) {
   io.stdout(`${JSON.stringify(value)}\n`);
@@ -222,6 +223,34 @@ async function readinessCommand(args, io) {
   return { __command_result: true, data: result, exitCode: result.ready ? 0 : 3 };
 }
 
+async function focusCommand(args, io) {
+  if (args.length !== 1 || args[0].startsWith('--')) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Usage: focus <ID>', 2);
+  }
+  const root = await findProjectRoot(io.cwd);
+  const result = await focusNode(root, args[0]);
+  return {
+    current_node: result.context.current_node,
+    next_action: result.nextAction,
+    context_path: result.contextPath,
+    project_map_path: result.projectMapPath
+  };
+}
+
+async function statusCommand(args, io) {
+  if (args.length > 1 || args[0]?.startsWith('--')) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Usage: status [ID]', 2);
+  }
+  const root = await findProjectRoot(io.cwd);
+  const index = await loadIndex(root);
+  const id = args[0] ?? index.current_node_id;
+  if (!id) {
+    throw new ProjectMapError('NO_CURRENT_NODE', 'No current node is selected');
+  }
+  const context = await resolveContext(root, id);
+  return { ...context, project_focus: index.current_node_id };
+}
+
 const commands = {
   init: initCommand,
   capture: captureCommand,
@@ -230,7 +259,9 @@ const commands = {
   ac: acceptanceCommand,
   decision: decisionCommand,
   decide: decideCommand,
-  readiness: readinessCommand
+  readiness: readinessCommand,
+  focus: focusCommand,
+  status: statusCommand
 };
 
 export async function run(argv, io) {

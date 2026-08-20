@@ -26,3 +26,10 @@ export async function writeJsonAtomic(path, value) {
   await writeFile(temporary, stableStringify(value), { flag: 'wx' });
   await rename(temporary, path);
 }
+
+export async function writeTextAtomic(path, value) {
+  await mkdir(dirname(path), { recursive: true });
+  const temporary = join(dirname(path), `.${randomUUID()}.tmp`);
+  await writeFile(temporary, value, { encoding: 'utf8', flag: 'wx' });
+  await rename(temporary, path);
+}
