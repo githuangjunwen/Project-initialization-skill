@@ -15,6 +15,9 @@ export const CRITICAL_CATEGORIES = new Set([
 export const CONFIRMATION_AUTHORITIES = new Set(['user', 'authority-source']);
 
 export async function loadDecision(root, id) {
+  if (!/^D-\d{3,}$/.test(id)) {
+    throw new ProjectMapError('DECISION_NOT_FOUND', `Unknown decision: ${id}`);
+  }
   try {
     return await readJson(join(projectMapPaths(root).decisions, `${id}.json`));
   } catch (error) {
@@ -65,6 +68,8 @@ export async function createDecision(root, {
   index.counters.D = number;
   await writeJsonAtomic(join(projectMapPaths(root).decisions, `${id}.json`), decision);
   await saveNodeAndIndex(root, node, index);
+  const { markImpact } = await import('./impact.mjs');
+  await markImpact(root, nodeId, ['decision_ids'], now);
   await invalidateDerived(root);
   return decision;
 }
@@ -106,6 +111,8 @@ export async function confirmDecision(root, id, {
   await writeJsonAtomic(
     join(projectMapPaths(root).decisions, `${id}.json`), decision
   );
+  const { markImpact } = await import('./impact.mjs');
+  await markImpact(root, decision.node_id, ['confirmed_decision'], now);
   await invalidateDerived(root);
   return decision;
 }

@@ -57,7 +57,12 @@ async function removeStamp(root, stage) {
   });
 }
 
-export async function evaluateReadiness(root, nodeId, stage) {
+export async function evaluateReadiness(
+  root,
+  nodeId,
+  stage,
+  { removeBlockedStamp = true } = {}
+) {
   if (!['plan', 'code'].includes(stage)) {
     throw new ProjectMapError('INVALID_READINESS_STAGE', `Invalid stage: ${stage}`);
   }
@@ -85,7 +90,11 @@ export async function evaluateReadiness(root, nodeId, stage) {
     if (node.type === 'task' && !node.completion_condition?.trim()) {
       blockers.push(blocker('MISSING_COMPLETION_CONDITION', node.id));
     }
-    if (node.type === 'task' && (!node.test_steps || node.test_steps.length === 0)) {
+    if (
+      node.type === 'task' &&
+      (!node.test_steps || node.test_steps.length === 0 ||
+        node.test_steps.some(step => !step.trim()))
+    ) {
       blockers.push(blocker('MISSING_TEST_STEPS', node.id));
     }
     if (node.gsd.plan_paths.length === 0) {
@@ -101,7 +110,7 @@ export async function evaluateReadiness(root, nodeId, stage) {
     blockers,
     state_sha256: sha256(stableStringify(state))
   };
-  if (!result.ready) await removeStamp(root, stage);
+  if (!result.ready && removeBlockedStamp) await removeStamp(root, stage);
   return result;
 }
 

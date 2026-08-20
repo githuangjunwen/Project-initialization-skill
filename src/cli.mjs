@@ -8,6 +8,9 @@ import { addAcceptanceCriterion, addNode, updateNode } from './nodes.mjs';
 import { confirmDecision, createDecision } from './decisions.mjs';
 import { evaluateReadiness, writeReadinessStamp } from './readiness.mjs';
 import { focusNode, resolveContext } from './context.mjs';
+import { linkEvidence, linkGsd, traceNode } from './trace.mjs';
+import { markImpact, reviewImpact } from './impact.mjs';
+import { checkProject, rebuildDerived } from './check.mjs';
 
 function emitJson(io, value) {
   io.stdout(`${JSON.stringify(value)}\n`);
@@ -122,7 +125,12 @@ async function nodeCommand(args, io) {
     );
   }
   const options = parseOptions(
-    args.slice(2), new Set(['--title', '--summary', '--status'])
+    args.slice(2),
+    new Set([
+      '--title', '--summary', '--status', '--verification-method',
+      '--completion-condition', '--test-step'
+    ]),
+    new Set(['--test-step'])
   );
   if (Object.keys(options).length === 0) {
     throw new ProjectMapError(
@@ -132,7 +140,10 @@ async function nodeCommand(args, io) {
   const patch = Object.fromEntries(Object.entries({
     title: options['--title'],
     summary: options['--summary'],
-    status: options['--status']
+    status: options['--status'],
+    verification_method: options['--verification-method'],
+    completion_condition: options['--completion-condition'],
+    test_steps: options['--test-step']
   }).filter(([, value]) => value !== undefined));
   const root = await findProjectRoot(io.cwd);
   const result = await updateNode(root, id, patch);
@@ -251,6 +262,97 @@ async function statusCommand(args, io) {
   return { ...context, project_focus: index.current_node_id };
 }
 
+async function linkCommand(args, io) {
+  const id = args[0];
+  if (!id || id.startsWith('--')) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Usage: link <ID> [links]', 2);
+  }
+  const allowed = new Set([
+    '--gsd-requirement', '--gsd-milestone', '--gsd-phase', '--gsd-plan',
+    '--code', '--test', '--document'
+  ]);
+  const options = parseOptions(args.slice(1), allowed);
+  if (Object.keys(options).length === 0) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'At least one link is required', 2);
+  }
+  const root = await findProjectRoot(io.cwd);
+  const links = [];
+  for (const [option, kind] of [
+    ['--gsd-requirement', 'requirement'],
+    ['--gsd-milestone', 'milestone'],
+    ['--gsd-phase', 'phase'],
+    ['--gsd-plan', 'plan']
+  ]) {
+    if (options[option]) {
+      await linkGsd(root, id, { kind, value: options[option] });
+      links.push({ kind: `gsd-${kind}`, value: options[option] });
+    }
+  }
+  for (const [option, kind] of [
+    ['--code', 'code'], ['--test', 'test'], ['--document', 'document']
+  ]) {
+    if (options[option]) {
+      await linkEvidence(root, id, { kind, path: options[option] });
+      links.push({ kind, path: options[option] });
+    }
+  }
+  return { node_id: id, links };
+}
+
+async function traceCommand(args, io) {
+  if (args.length !== 1 || args[0].startsWith('--')) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Usage: trace <ID>', 2);
+  }
+  const root = await findProjectRoot(io.cwd);
+  return traceNode(root, args[0]);
+}
+
+async function impactCommand(args, io) {
+  const root = await findProjectRoot(io.cwd);
+  if (args[0] === 'review') {
+    const id = args[1];
+    if (!id || id.startsWith('--')) {
+      throw new ProjectMapError(
+        'INVALID_ARGUMENTS', 'Usage: impact review <ID> [options]', 2
+      );
+    }
+    const options = parseOptions(
+      args.slice(2), new Set(['--authority', '--note'])
+    );
+    if (!options['--authority'] || !options['--note']) {
+      throw new ProjectMapError(
+        'INVALID_ARGUMENTS', 'Missing --authority or --note', 2
+      );
+    }
+    const node = await reviewImpact(root, id, {
+      authority: options['--authority'], note: options['--note']
+    });
+    return { node };
+  }
+  if (args.length !== 1 || args[0].startsWith('--')) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Usage: impact <ID>', 2);
+  }
+  const affected = await markImpact(root, args[0], ['manual_change']);
+  return { changed_node: args[0], affected };
+}
+
+async function checkCommand(args, io) {
+  if (args.length !== 0) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Usage: check', 2);
+  }
+  const root = await findProjectRoot(io.cwd);
+  const result = await checkProject(root);
+  return { __command_result: true, data: result, exitCode: result.ok ? 0 : 1 };
+}
+
+async function rebuildCommand(args, io) {
+  if (args.length !== 0) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Usage: rebuild', 2);
+  }
+  const root = await findProjectRoot(io.cwd);
+  return rebuildDerived(root);
+}
+
 const commands = {
   init: initCommand,
   capture: captureCommand,
@@ -261,7 +363,12 @@ const commands = {
   decide: decideCommand,
   readiness: readinessCommand,
   focus: focusCommand,
-  status: statusCommand
+  status: statusCommand,
+  link: linkCommand,
+  trace: traceCommand,
+  impact: impactCommand,
+  check: checkCommand,
+  rebuild: rebuildCommand
 };
 
 export async function run(argv, io) {

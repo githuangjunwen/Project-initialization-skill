@@ -136,3 +136,52 @@ test('focus changes current work while status remains read-only', async () => {
   assert.equal(status.current_node.id, 'E-002');
   assert.equal(status.project_focus, 'E-001');
 });
+
+test('link, trace, impact, check, and rebuild expose audit controls', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = { cwd: repo, stdout: value => output.push(value), stderr: () => {} };
+  await run(['init', '--project-title', 'Demo', '--text', 'idea', '--json'], io);
+  await run(['add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'], io);
+  await run(['add', 'epic', '--parent', 'P-001', '--title', 'One', '--json'], io);
+  await run(['add', 'feature', '--parent', 'E-001', '--title', 'Login', '--json'], io);
+  await run(['link', 'F-001', '--gsd-requirement', 'REQ-1', '--json'], io);
+  assert.equal(await run(['trace', 'F-001', '--json'], io), 0);
+  assert.equal(
+    JSON.parse(output.pop()).data.forward.some(edge => edge.kind === 'gsd-requirement'),
+    true
+  );
+  assert.equal(await run(['impact', 'E-001', '--json'], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.affected.length, 1);
+  assert.equal(await run([
+    'impact', 'review', 'F-001', '--authority', 'user', '--note', 'checked', '--json'
+  ], io), 0);
+  assert.equal(await run(['focus', 'F-001', '--json'], io), 0);
+  assert.equal(await run(['check', '--json'], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.ok, true);
+  assert.equal(await run(['rebuild', '--json'], io), 0);
+});
+
+test('node update captures story verification and repeated task test steps', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = { cwd: repo, stdout: value => output.push(value), stderr: () => {} };
+  await run(['init', '--project-title', 'Demo', '--text', 'idea', '--json'], io);
+  await run(['add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'], io);
+  await run(['add', 'epic', '--parent', 'P-001', '--title', 'E', '--json'], io);
+  await run(['add', 'feature', '--parent', 'E-001', '--title', 'F', '--json'], io);
+  await run(['add', 'story', '--parent', 'F-001', '--title', 'S', '--json'], io);
+  await run(['add', 'task', '--parent', 'S-001', '--title', 'T', '--json'], io);
+
+  assert.equal(await run([
+    'node', 'update', 'S-001', '--verification-method', 'Run scenario', '--json'
+  ], io), 0);
+  assert.equal(await run([
+    'node', 'update', 'T-001', '--completion-condition', 'All green',
+    '--test-step', 'Unit test', '--test-step', 'Integration test', '--json'
+  ], io), 0);
+  assert.deepEqual(
+    JSON.parse(output.pop()).data.node.test_steps,
+    ['Unit test', 'Integration test']
+  );
+});

@@ -13,6 +13,11 @@ function sourcePath(root, relativePath) {
 }
 
 export function createSourceRecord(id, text, origin, capturedAt) {
+  if (/[\r\n]/.test(origin)) {
+    throw new ProjectMapError(
+      'INVALID_SOURCE_ORIGIN', 'Source origin must be a single line'
+    );
+  }
   return {
     id,
     path: `sources/${id}.md`,
@@ -58,7 +63,21 @@ async function readSourceFile(root, record) {
       `Source file has no raw-input delimiter: ${record.id}`
     );
   }
-  return { content, text: content.slice(delimiterIndex + RAW_DELIMITER.length) };
+  const header = content.slice(0, delimiterIndex);
+  const rawBytes = header.match(/^- Raw-Bytes: (\d+)$/m)?.[1];
+  const hash = header.match(/^- SHA-256: ([a-f0-9]{64})$/m)?.[1];
+  const origin = header.match(/^- Origin: (.*)$/m)?.[1];
+  const capturedAt = header.match(/^- Captured: (.*)$/m)?.[1];
+  return {
+    content,
+    text: content.slice(delimiterIndex + RAW_DELIMITER.length),
+    metadata: {
+      raw_bytes: rawBytes === undefined ? null : Number(rawBytes),
+      sha256: hash ?? null,
+      origin: origin ?? null,
+      captured_at: capturedAt ?? null
+    }
+  };
 }
 
 export async function readSource(root, id) {
@@ -101,14 +120,25 @@ export async function verifySources(root) {
   for (const id of Object.keys(index.sources).sort()) {
     const record = { id, ...index.sources[id] };
     let text;
+    let metadata;
     try {
-      ({ text } = await readSourceFile(root, record));
+      ({ text, metadata } = await readSourceFile(root, record));
     } catch (error) {
       errors.push({
         code: error.code === 'ENOENT' ? 'SOURCE_FILE_MISSING' : error.code,
         id,
         message: error.message
       });
+      continue;
+    }
+
+    if (
+      metadata.raw_bytes !== record.raw_bytes ||
+      metadata.sha256 !== record.sha256 ||
+      metadata.origin !== record.origin ||
+      metadata.captured_at !== record.captured_at
+    ) {
+      errors.push({ code: 'SOURCE_METADATA_MISMATCH', id });
       continue;
     }
 

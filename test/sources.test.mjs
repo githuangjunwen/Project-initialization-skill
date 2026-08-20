@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFile, readFile } from 'node:fs/promises';
+import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createFixtureRepo, fixedNow } from './helpers/repo.mjs';
 import { initializeStore } from '../src/store.mjs';
@@ -66,4 +66,18 @@ test('source metadata records raw length and SHA-256', async () => {
   );
   assert.match(file, /- Raw-Bytes: 6/);
   assert.match(file, /- SHA-256: [a-f0-9]{64}/);
+});
+
+test('verification detects tampered source envelope metadata', async () => {
+  const repo = await createFixtureRepo();
+  await initializeStore(repo, {
+    title: 'Demo', rawSource: 'original', origin: 'user', now: fixedNow
+  });
+  const path = join(repo, '.planning/project-map/sources/SRC-001.md');
+  const file = await readFile(path, 'utf8');
+  await writeFile(path, file.replace('- Raw-Bytes: 8', '- Raw-Bytes: 9'));
+
+  const result = await verifySources(repo);
+  assert.equal(result.ok, false);
+  assert.equal(result.errors[0].code, 'SOURCE_METADATA_MISMATCH');
 });

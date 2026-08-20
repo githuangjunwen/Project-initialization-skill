@@ -230,6 +230,9 @@ GSD 1.6+ 的第三方 Capability 可以拥有 Skills、提示片段、生命周�
   "parent_id": "E-002",
   "title": "示例功能",
   "summary": "一句话说明边界和用户价值",
+  "verification_method": "Story 的可执行验证方法；其他层级为空",
+  "completion_condition": "Task 的明确完成条件；其他层级为空",
+  "test_steps": ["Task 的具体测试步骤"],
   "status": "exploring",
   "source_links": [
     {"source_id": "SRC-001", "relation": "derived-from", "excerpt": "原始摘录"}

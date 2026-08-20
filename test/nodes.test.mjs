@@ -104,3 +104,27 @@ test('rejects unsupported node patches', async () => {
     error => error.code === 'INVALID_PATCH_FIELD'
   );
 });
+
+test('a task cannot be completed without code, test, or document evidence', async () => {
+  const repo = await initializedRepo();
+  const project = await addNode(repo, {
+    type: 'project', title: 'Demo', sourceIds: ['SRC-001'], now: fixedNow
+  });
+  const epic = await addNode(repo, {
+    type: 'epic', parentId: project.id, title: 'Epic', now: fixedNow
+  });
+  const feature = await addNode(repo, {
+    type: 'feature', parentId: epic.id, title: 'Feature', now: fixedNow
+  });
+  const story = await addNode(repo, {
+    type: 'story', parentId: feature.id, title: 'Story', now: fixedNow
+  });
+  const task = await addNode(repo, {
+    type: 'task', parentId: story.id, title: 'Task', now: fixedNow
+  });
+
+  await assert.rejects(
+    updateNode(repo, task.id, { status: 'done' }, fixedNow),
+    error => error.code === 'TASK_EVIDENCE_REQUIRED'
+  );
+});
