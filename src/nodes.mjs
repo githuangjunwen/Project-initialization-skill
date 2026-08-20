@@ -159,6 +159,30 @@ export async function updateNode(root, id, patch, now = new Date().toISOString()
   return { node, changedFields };
 }
 
+export async function addAcceptanceCriterion(
+  root,
+  nodeId,
+  text,
+  now = new Date().toISOString()
+) {
+  const index = await loadIndex(root);
+  const node = await loadNode(root, nodeId);
+  const nextNumber = node.acceptance_criteria.reduce((maximum, criterion) => {
+    const number = Number.parseInt(criterion.id.slice(3), 10);
+    return Math.max(maximum, Number.isNaN(number) ? 0 : number);
+  }, 0) + 1;
+  node.acceptance_criteria.push({
+    id: `AC-${String(nextNumber).padStart(3, '0')}`,
+    text,
+    status: 'draft'
+  });
+  node.updated_at = now;
+  index.nodes[nodeId] = nodeIndexRecord(node);
+  await saveNodeAndIndex(root, node, index);
+  await invalidateDerived(root);
+  return node;
+}
+
 export async function listChildren(root, id) {
   const index = await loadIndex(root);
   const ids = Object.keys(index.nodes)

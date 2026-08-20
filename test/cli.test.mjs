@@ -89,3 +89,33 @@ test('add and node update manage the recursive tree', async () => {
     ['status', 'summary']
   );
 });
+
+test('decision confirmation and readiness preserve the user authority boundary', async () => {
+  const repo = await createFixtureRepo();
+  const output = [];
+  const io = { cwd: repo, stdout: value => output.push(value), stderr: () => {} };
+  await run(['init', '--project-title', 'Demo', '--text', 'idea', '--json'], io);
+  await run(['add', 'project', '--title', 'Demo', '--source', 'SRC-001', '--json'], io);
+  await run(['add', 'epic', '--parent', 'P-001', '--title', 'Auth', '--json'], io);
+  await run(['add', 'feature', '--parent', 'E-001', '--title', 'Delete', '--json'], io);
+  await run(['node', 'update', 'F-001', '--summary', 'Delete account', '--json'], io);
+  await run(['ac', 'add', 'F-001', '--text', 'Request is recorded', '--json'], io);
+  await run([
+    'decision', 'create', 'F-001', '--category', 'permission',
+    '--question', 'Who may delete?', '--proposal', 'Admin', '--json'
+  ], io);
+
+  assert.equal(await run([
+    'readiness', 'F-001', '--stage', 'plan', '--json'
+  ], io), 3);
+  assert.equal(JSON.parse(output.pop()).data.ready, false);
+
+  assert.equal(await run([
+    'decide', 'D-001', '--confirm', '--authority', 'user',
+    '--evidence', 'approved here', '--json'
+  ], io), 0);
+  assert.equal(await run([
+    'readiness', 'F-001', '--stage', 'plan', '--json'
+  ], io), 0);
+  assert.equal(JSON.parse(output.pop()).data.ready, true);
+});

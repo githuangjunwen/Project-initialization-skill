@@ -4,7 +4,9 @@ import { ProjectMapError, toErrorPayload } from './errors.mjs';
 import { findProjectRoot } from './paths.mjs';
 import { captureSource } from './sources.mjs';
 import { initializeStore } from './store.mjs';
-import { addNode, updateNode } from './nodes.mjs';
+import { addAcceptanceCriterion, addNode, updateNode } from './nodes.mjs';
+import { confirmDecision, createDecision } from './decisions.mjs';
+import { evaluateReadiness, writeReadinessStamp } from './readiness.mjs';
 
 function emitJson(io, value) {
   io.stdout(`${JSON.stringify(value)}\n`);
@@ -136,11 +138,99 @@ async function nodeCommand(args, io) {
   return { node: result.node, changed_fields: result.changedFields };
 }
 
+async function acceptanceCommand(args, io) {
+  if (args[0] !== 'add' || !args[1] || args[1].startsWith('--')) {
+    throw new ProjectMapError(
+      'INVALID_ARGUMENTS', 'Usage: ac add <ID> --text <criterion>', 2
+    );
+  }
+  const options = parseOptions(args.slice(2), new Set(['--text']));
+  if (!Object.hasOwn(options, '--text')) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Missing --text', 2);
+  }
+  const root = await findProjectRoot(io.cwd);
+  const node = await addAcceptanceCriterion(root, args[1], options['--text']);
+  return { node, criterion: node.acceptance_criteria.at(-1) };
+}
+
+async function decisionCommand(args, io) {
+  if (args[0] !== 'create' || !args[1] || args[1].startsWith('--')) {
+    throw new ProjectMapError(
+      'INVALID_ARGUMENTS',
+      'Usage: decision create <NODE-ID> --category <value> --question <text>',
+      2
+    );
+  }
+  const options = parseOptions(
+    args.slice(2), new Set(['--category', '--question', '--proposal'])
+  );
+  if (!options['--category'] || !options['--question']) {
+    throw new ProjectMapError(
+      'INVALID_ARGUMENTS', 'Missing --category or --question', 2
+    );
+  }
+  const root = await findProjectRoot(io.cwd);
+  const decision = await createDecision(root, {
+    nodeId: args[1],
+    category: options['--category'],
+    question: options['--question'],
+    proposal: options['--proposal'] ?? '',
+    actor: 'ai'
+  });
+  return { decision };
+}
+
+async function decideCommand(args, io) {
+  const id = args[0];
+  const confirms = args.filter(argument => argument === '--confirm').length;
+  if (!id || id.startsWith('--') || confirms !== 1) {
+    throw new ProjectMapError(
+      'INVALID_ARGUMENTS', 'Usage: decide <D-ID> --confirm [options]', 2
+    );
+  }
+  const options = parseOptions(
+    args.slice(1).filter(argument => argument !== '--confirm'),
+    new Set(['--authority', '--evidence'])
+  );
+  if (!options['--authority'] || !options['--evidence']) {
+    throw new ProjectMapError(
+      'INVALID_ARGUMENTS', 'Missing --authority or --evidence', 2
+    );
+  }
+  const root = await findProjectRoot(io.cwd);
+  const decision = await confirmDecision(root, id, {
+    authority: options['--authority'],
+    evidence: options['--evidence']
+  });
+  return { decision };
+}
+
+async function readinessCommand(args, io) {
+  const id = args[0];
+  if (!id || id.startsWith('--')) {
+    throw new ProjectMapError(
+      'INVALID_ARGUMENTS', 'Usage: readiness <ID> --stage plan|code', 2
+    );
+  }
+  const options = parseOptions(args.slice(1), new Set(['--stage']));
+  if (!options['--stage']) {
+    throw new ProjectMapError('INVALID_ARGUMENTS', 'Missing --stage', 2);
+  }
+  const root = await findProjectRoot(io.cwd);
+  const result = await evaluateReadiness(root, id, options['--stage']);
+  if (result.ready) await writeReadinessStamp(root, result);
+  return { __command_result: true, data: result, exitCode: result.ready ? 0 : 3 };
+}
+
 const commands = {
   init: initCommand,
   capture: captureCommand,
   add: addCommand,
-  node: nodeCommand
+  node: nodeCommand,
+  ac: acceptanceCommand,
+  decision: decisionCommand,
+  decide: decideCommand,
+  readiness: readinessCommand
 };
 
 export async function run(argv, io) {
@@ -155,10 +245,13 @@ export async function run(argv, io) {
         'UNKNOWN_COMMAND', `Unknown command: ${command ?? ''}`, 2
       );
     }
-    const data = await handler(args.slice(1), io);
+    const outcome = await handler(args.slice(1), io);
+    const wrapped = outcome?.__command_result === true;
+    const data = wrapped ? outcome.data : outcome;
+    const exitCode = wrapped ? outcome.exitCode : 0;
     if (useJson) emitJson(io, { ok: true, data });
     else io.stdout(`${command} complete\n`);
-    return 0;
+    return exitCode;
   } catch (error) {
     const normalized = error instanceof ProjectMapError
       ? error
