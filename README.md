@@ -1,56 +1,56 @@
-# Project Map Capability
+# Project Map 能力包
 
-Project Map is the thin requirements and traceability layer around GSD Core. It preserves the original idea, grows one branch of a recursive requirement tree at a time, blocks unconfirmed business decisions, and keeps a focused resume context. GSD remains the implementation engine.
+Project Map 是围绕 GSD Core 的轻量需求与可追溯层。它保留原始想法、一次只完善递归需求树的一个分支、阻断未经确认的业务决策，并提供聚焦的恢复上下文。GSD 仍是实施引擎。
 
-## Ownership boundary
+## 职责边界
 
-| Project Map owns | GSD Core owns |
+| Project Map 负责 | GSD Core 负责 |
 | --- | --- |
-| Immutable source capture | `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, and `STATE.md` |
-| Project → Epic → Feature → Story → Task tree | Phase discussion and research |
-| Decision authority and readiness gates | Phase plans and task execution |
-| Focused `CURRENT.md` and global `PROJECT-MAP.md` | Execution summaries, verification, and shipping |
-| Source/GSD/code/test links and impact review | Its own agents, Skills, and quality workflow |
+| 不可变来源捕获 | `PROJECT.md`、`REQUIREMENTS.md`、`ROADMAP.md` 与 `STATE.md` |
+| Project → Epic → Feature → Story → Task 树 | 阶段讨论与研究 |
+| 决策授权与就绪门槛 | 阶段计划与任务执行 |
+| 聚焦的 `CURRENT.md` 与全局 `PROJECT-MAP.md` | 执行摘要、验证与交付 |
+| 来源／GSD／代码／测试链接与影响复核 | 自身的 Agent、Skill 与质量工作流 |
 
-Project Map does not generate a second GSD roadmap, plan, task report, or verification report.
+Project Map 不会生成第二套 GSD 路线图、计划、任务报告或验证报告。
 
-## Model
+## 模型
 
-The only valid hierarchy is:
+唯一有效的层级为：
 
 ```text
 Project → Epic → Feature → Story → Task
 P-001     E-001   F-001    S-001   T-001
 ```
 
-Nodes move through `idea → exploring → specified → planned → implementing → verifying → done`. `blocked` and `needs-review` are independent flags. A Task cannot enter `done` without linked code, test, or document evidence.
+节点依次经过 `idea → exploring → specified → planned → implementing → verifying → done`。`blocked` 与 `needs-review` 是独立标志。没有关联代码、测试或文档证据的 Task 不得进入 `done`。
 
-Canonical data lives under `.planning/project-map/` in `index.json`, `sources/`, `nodes/`, and `decisions/`. `CURRENT.md`, `PROJECT-MAP.md`, and `gates/*.ready` are generated and recoverable.
+规范数据位于 `.planning/project-map/` 下的 `index.json`、`sources/`、`nodes/` 和 `decisions/`。`CURRENT.md`、`PROJECT-MAP.md` 与 `gates/*.ready` 为可恢复的生成文件。
 
-> Never hand-edit generated Markdown or readiness stamps. Do not hand-edit canonical JSON either; use the CLI so hashes, indexes, impact state, and derived artifacts stay synchronized.
+> 绝不手工编辑生成的 Markdown 或就绪标记，也不要手工编辑规范 JSON；请使用 CLI，确保哈希、索引、影响状态与派生产物保持同步。
 
-## Project-local setup
+## 项目本地安装
 
-Requirements: Node.js 18 or newer and Git.
+要求：Node.js 18 或更高版本，以及 Git。
 
-From a target project, install this checkout as a project-local development dependency:
+在目标项目中，将本仓库安装为项目本地开发依赖：
 
 ```bash
 npm install --save-dev /absolute/path/to/Project-initialization-skill
 ```
 
-Initialize with the unmodified initial idea:
+使用未修改的初始想法进行初始化：
 
 ```bash
 npx project-map init \
-  --project-title "Team approvals" \
+  --project-title "团队审批" \
   --text "做一个团队审批工具"
 
 npx project-map add project --title "审批工具" --source SRC-001
 npx project-map add epic --parent P-001 --title "审批流程"
 ```
 
-`init` refuses to overwrite an existing Project Map. Later clarification uses `capture`, which always creates a new `SRC-NNN`:
+`init` 会拒绝覆盖已有 Project Map。后续澄清使用 `capture`，它总会创建新的 `SRC-NNN`：
 
 ```bash
 npx project-map capture --text "审批记录保留七年是待确认规则" --origin user
@@ -59,20 +59,20 @@ npx project-map link E-001 \
   --source-excerpt "审批记录保留七年"
 ```
 
-During development of this repository, replace `npx project-map` with `node bin/project-map.mjs`.
+开发本仓库时，请以 `node bin/project-map.mjs` 替换 `npx project-map`。
 
-## Progressive workflow
+## 逐步工作流
 
-Focus only the branch being refined:
+只聚焦正在完善的分支：
 
 ```bash
 npx project-map focus E-002
 npx project-map status E-002 --json
 ```
 
-With the Capability Skill installed, the natural-language request `推进 E-002` routes through `focus E-002`, reads `CURRENT.md`, and loads only its `must_read` context. Unrelated branch bodies remain excluded by default.
+安装 Capability Skill 后，自然语言请求 `推进 E-002` 会先经过 `focus E-002`，读取 `CURRENT.md`，且只加载其 `must_read` 上下文。默认仍会排除无关分支的正文。
 
-Add a Feature specification incrementally:
+逐步添加 Feature 规格：
 
 ```bash
 npx project-map add feature --parent E-002 --title "删除申请"
@@ -81,7 +81,7 @@ npx project-map node update F-001 \
 npx project-map ac add F-001 --text "用户可以提交删除申请"
 ```
 
-Stories and Tasks can record their executable verification details:
+Story 与 Task 可以记录可执行的验证细节：
 
 ```bash
 npx project-map node update S-001 \
@@ -92,9 +92,9 @@ npx project-map node update T-001 \
   --test-step "运行审批流程集成测试"
 ```
 
-## Decision authority
+## 决策授权
 
-AI suggestions stay `proposed`. Critical categories such as approval, permissions, deletion, retention, billing, identity, security, privacy, compliance, and irreversible migration cannot be silently confirmed:
+AI 建议始终保持为 `proposed`。审批、权限、删除、保留、计费、身份、安全、隐私、合规和不可逆迁移等关键类别不能被静默确认：
 
 ```bash
 npx project-map decision create F-001 \
@@ -108,9 +108,9 @@ npx project-map decide D-001 \
   --evidence "产品负责人在本次任务中确认"
 ```
 
-Only `user` and `authority-source` are valid confirmation or impact-review authorities.
+只有 `user` 与 `authority-source` 可以作为确认或影响复核的有效授权方。
 
-When a confirmed rule changes, create its replacement and preserve the old decision as superseded:
+已确认的规则发生变化时，创建替代规则，并将旧决策保留为已替代：
 
 ```bash
 npx project-map decide D-001 \
@@ -119,18 +119,18 @@ npx project-map decide D-001 \
   --evidence "审批政策已变更"
 ```
 
-## Readiness and GSD handoff
+## 就绪检查与 GSD 交接
 
-Focus the node, then run the deterministic gate immediately before planning or coding:
+聚焦节点后，在计划或编码前立即运行确定性门槛：
 
 ```bash
 npx project-map readiness F-001 --stage plan --json
 npx project-map readiness T-001 --stage code --json
 ```
 
-Ready returns exit code `0`; blocked returns exit code `3` with exact blocker codes. Never start GSD planning or execution while blocked.
+就绪时返回退出码 `0`；被阻断时返回退出码 `3` 及精确阻断代码。被阻断时不得开始 GSD 计划或执行。
 
-Link, rather than duplicate, GSD artifacts:
+应关联而非复制 GSD 产物：
 
 ```bash
 npx project-map link F-001 \
@@ -141,11 +141,11 @@ npx project-map link T-001 \
   --gsd-plan .planning/phases/02-delete/02-01-PLAN.md
 ```
 
-After readiness succeeds, the Skill reads its GSD handoff reference and recommends one installed GSD command such as `/gsd-discuss-phase 2`, `/gsd-plan-phase 2`, or `/gsd-execute-phase 2`. It must use the linked phase and verify the command spelling exposed by the installed GSD runtime.
+就绪检查通过后，Skill 会阅读 GSD 交接参考，并建议一条已安装的 GSD 命令，例如 `/gsd-discuss-phase 2`、`/gsd-plan-phase 2` 或 `/gsd-execute-phase 2`。它必须使用已关联的阶段，并核实已安装 GSD 运行时实际暴露的命令拼写。
 
-## Traceability and change impact
+## 可追溯性与变更影响
 
-Link only evidence observed in the actual change:
+只关联实际变更中观察到的证据：
 
 ```bash
 npx project-map link T-001 \
@@ -154,7 +154,7 @@ npx project-map link T-001 \
 npx project-map trace F-001 --json
 ```
 
-When a parent requirement changes, mark its descendants for review without rewriting them:
+父需求变更时，标记后代待复核，但不重写它们：
 
 ```bash
 npx project-map impact E-002 --json
@@ -163,40 +163,40 @@ npx project-map impact review F-001 \
   --note "已按新的 Epic 边界复核"
 ```
 
-Semantic changes made through `node update`, acceptance criteria, or confirmed decisions automatically propagate `needs-review` to descendants.
+通过 `node update`、验收标准或已确认决策产生的语义变更，会自动向后代传播 `needs-review`。
 
-## Health check and recovery
+## 健康检查与恢复
 
-Run the audit after requirement or code changes:
+需求或代码变更后运行审计：
 
 ```bash
 npx project-map check --json
 ```
 
-`check` validates source hashes and metadata, node/index parity, hierarchy and cycles, source and decision references, GSD reverse links, evidence paths, generated hashes, and readiness hashes. Missing linked evidence is a warning; canonical corruption is an error.
+`check` 会验证来源哈希和元数据、节点／索引一致性、层级与环、来源与决策引用、GSD 反向链接、证据路径、生成哈希以及就绪哈希。缺少已关联证据是警告；规范数据损坏是错误。
 
-Recovery order:
+恢复顺序：
 
-1. Run `project-map check --json`.
-2. Repair canonical errors from their authoritative source. Do not reconstruct missing sources, nodes, or decisions from generated Markdown.
-3. Run `project-map rebuild --json` only after canonical data passes.
-4. Run `project-map check --json` again.
+1. 运行 `project-map check --json`。
+2. 从其权威来源修复规范错误。不得根据生成的 Markdown 重建缺失的来源、节点或决策。
+3. 仅在规范数据通过检查后运行 `project-map rebuild --json`。
+4. 再次运行 `project-map check --json`。
 
-`rebuild` regenerates only `CURRENT.md`, `PROJECT-MAP.md`, generation hashes, and still-valid current readiness stamps.
+`rebuild` 只会重新生成 `CURRENT.md`、`PROJECT-MAP.md`、生成哈希和仍然有效的当前就绪标记。
 
-## Capability installation status
+## Capability 安装状态
 
-The Capability exposes exactly one project-local Skill, `project-map`, with discovery, readiness, and GSD handoff details in separate on-demand references. Its manifest targets GSD `>=1.6.0 <2.0.0` and Codex.
+该 Capability 只暴露一个项目本地 Skill：`project-map`。需求探索、就绪检查和 GSD 交接细节分别位于按需读取的参考资料中。其清单面向 GSD `>=1.6.0 <2.0.0` 与 Codex。
 
-The intended project-scoped installation is:
+预期的项目级安装方式：
 
 ```bash
 gsd capability install /absolute/path/to/capability --scope project
 gsd capability list --json
 ```
 
-The manifest and Skill pass repository validation. A live disposable GSD installation was attempted on 2026-08-20 but the environment's npm TLS chain failed with `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`; repeat the two commands above in a certificate-healthy environment before treating runtime installation as verified.
+清单与 Skill 已通过仓库验证。曾在 2026-08-20 尝试进行一次性 GSD 实际安装，但环境的 npm TLS 证书链报错 `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`；在将运行时安装视为已验证前，请在证书链正常的环境中重新执行上面两条命令。
 
-## Deliberately deferred
+## 有意延期的内容
 
-The MVP intentionally defers GSD loop-level declarative gates, CoDD adapters, BMAD adapters, external plugins, and the previously cancelled requirements framework. Add loop gates only after pinning and testing the installed GSD version's official predicate contract.
+MVP 有意延后 GSD 循环级声明式门槛、CoDD 适配器、BMAD 适配器、外部插件和此前已取消的需求框架。只有在固定版本并测试已安装 GSD 版本的官方谓词约定后，才添加循环门槛。

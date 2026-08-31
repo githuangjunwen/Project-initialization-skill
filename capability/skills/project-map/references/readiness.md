@@ -1,30 +1,30 @@
-# Deterministic Readiness
+# 确定性就绪检查
 
-Run `project-map readiness <ID> --stage plan|code --json`. Exit `0` means ready; exit `3` means blocked. Treat the returned blocker codes as authoritative.
+运行 `project-map readiness <ID> --stage plan|code --json`。退出码 `0` 表示就绪；退出码 `3` 表示被阻断。以返回的阻断代码为准。
 
-## Plan blockers
+## 计划阻断项
 
-| Code | Required response |
+| 代码 | 所需响应 |
 | --- | --- |
-| `MISSING_SOURCE` | Link a captured source or a traceable parent |
-| `MISSING_SUMMARY` | Define boundary and user value |
-| `MISSING_ACCEPTANCE_CRITERIA` | Add observable acceptance criteria |
-| `EMPTY_ACCEPTANCE_CRITERION` | Replace the empty criterion |
-| `CRITICAL_DECISION_UNCONFIRMED` | Ask a user or authority source to confirm with evidence |
-| `BLOCKING_QUESTION_OPEN` | Resolve the question; do not assume |
-| `ANCESTOR_NEEDS_REVIEW` | Review the affected ancestor chain |
-| `NODE_NEEDS_REVIEW` | Complete impact review for the node |
+| `MISSING_SOURCE` | 关联已捕获来源或可追踪的父节点 |
+| `MISSING_SUMMARY` | 定义边界和用户价值 |
+| `MISSING_ACCEPTANCE_CRITERIA` | 添加可观察的验收标准 |
+| `EMPTY_ACCEPTANCE_CRITERION` | 替换空的验收标准 |
+| `CRITICAL_DECISION_UNCONFIRMED` | 要求用户或权威来源以证据确认 |
+| `BLOCKING_QUESTION_OPEN` | 解决该问题；不得假设 |
+| `ANCESTOR_NEEDS_REVIEW` | 复核受影响的祖先链 |
+| `NODE_NEEDS_REVIEW` | 完成节点的影响复核 |
 
-## Additional code blockers
+## 额外的编码阻断项
 
-| Code | Required response |
+| 代码 | 所需响应 |
 | --- | --- |
-| `PARENT_FEATURE_NOT_READY` | Make the parent Feature plan-ready first |
-| `MISSING_VERIFICATION_METHOD` | Record the Story verification method |
-| `MISSING_COMPLETION_CONDITION` | Record the Task completion condition |
-| `MISSING_TEST_STEPS` | Add concrete Task test steps |
-| `MISSING_GSD_PLAN` | Link the existing GSD plan |
+| `PARENT_FEATURE_NOT_READY` | 先让父 Feature 通过计划就绪检查 |
+| `MISSING_VERIFICATION_METHOD` | 记录 Story 验证方法 |
+| `MISSING_COMPLETION_CONDITION` | 记录 Task 完成条件 |
+| `MISSING_TEST_STEPS` | 添加具体的 Task 测试步骤 |
+| `MISSING_GSD_PLAN` | 关联已有 GSD 计划 |
 
-A readiness stamp is derived evidence, not permission to ignore a later state change. Any write invalidates it. Re-run readiness immediately before GSD planning or execution.
+就绪标记是派生证据，不是忽略后续状态变化的许可。任何写入都会使它失效。应在 GSD 计划或执行前立即重新运行就绪检查。
 
-Never bypass a blocker by editing a stamp, generated Markdown, or canonical JSON. Never downgrade a critical decision to make the gate pass.
+绝不通过编辑标记、生成的 Markdown 或规范 JSON 来绕过阻断项。绝不为通过门槛而降低关键决策的等级。

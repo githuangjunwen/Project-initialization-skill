@@ -111,7 +111,7 @@ async function projectSnapshot(root, context) {
     ),
     open_questions: questions,
     needs_review: nodes.filter(node => node.review.state === 'needs-review'),
-    artifact_health: 'Generated from canonical project-map data.'
+    artifact_health: '由规范的项目地图数据生成。'
   };
 }
 

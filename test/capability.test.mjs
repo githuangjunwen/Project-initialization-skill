@@ -21,8 +21,9 @@ test('skill routes Chinese resume intent through focus before GSD handoff', asyn
   assert.match(skill, /readiness/);
   assert.match(
     skill,
-    /Never invoke GSD planning or execution when readiness is blocked/
+    /就绪检查被阻断时，绝不调用 GSD 计划或执行/
   );
+  assert.match(skill, /自动生成的 Markdown 文档必须使用简体中文/);
   assert.match(skill, /references\/discovery\.md/);
   assert.match(skill, /references\/readiness\.md/);
   assert.match(skill, /references\/gsd-handoff\.md/);
@@ -35,7 +36,7 @@ test('references keep discovery, deterministic gates, and GSD mapping separate',
     readFile(`${skillRoot}/references/readiness.md`, 'utf8'),
     readFile(`${skillRoot}/references/gsd-handoff.md`, 'utf8')
   ]);
-  assert.match(discovery, /business rules/i);
+  assert.match(discovery, /业务规则/);
   assert.match(readiness, /CRITICAL_DECISION_UNCONFIRMED/);
   assert.match(handoff, /GSD/);
 });

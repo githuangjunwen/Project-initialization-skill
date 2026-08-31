@@ -50,21 +50,26 @@ test('focus includes ancestors and direct children but excludes sibling bodies',
   assert.equal(JSON.stringify(context).includes('E-002 private body'), false);
 });
 
-test('project map exposes current work and exactly one next action', async () => {
+test('project map renders Chinese headings and exactly one next action', async () => {
   const repo = await repoWithTwoEpics();
   const result = await focusNode(repo, 'E-001', fixedNow);
   const text = await readFile(
     join(repo, '.planning/project-map/PROJECT-MAP.md'), 'utf8'
   );
 
-  assert.match(text, /Current node: E-001/);
-  assert.equal((text.match(/Recommended next action:/g) ?? []).length, 1);
+  assert.match(text, /# 项目地图/);
+  assert.match(text, /当前节点：E-001/);
+  assert.equal((text.match(/建议的下一步操作：/g) ?? []).length, 1);
+  assert.doesNotMatch(text, /Current node:|Recommended next action:/);
   assert.match(text, /帮助团队安全推进产品/);
   assert.equal(result.contextPath.endsWith('CURRENT.md'), true);
   assert.equal((await loadIndex(repo)).current_node_id, 'E-001');
   const current = await readFile(
     join(repo, '.planning/project-map/CURRENT.md'), 'utf8'
   );
+  assert.match(current, /# 当前节点/);
+  assert.match(current, /## 建议的下一步操作/);
+  assert.doesNotMatch(current, /# Current Node|## Recommended Next Action/);
   assert.match(current, /\.planning\/project-map\/nodes\/P-001\.json/);
   assert.match(current, /\.planning\/project-map\/nodes\/E-002\.json/);
 });

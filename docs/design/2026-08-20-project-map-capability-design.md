@@ -1,10 +1,10 @@
-# Project Map Capability 设计规格
+# Project Map 能力包设计规格
 
-- Status: Approved architecture; implementation pending
-- Date: 2026-08-20
-- Primary source: `docs/requirements/sources/SRC-001.md`
-- Baseline: GSD Core + thin Project Map Capability
-- Explicit exclusion: `Manage Project Requirements`
+- 状态：已批准架构；实施已完成
+- 日期：2026-08-20
+- 主要来源：`docs/requirements/sources/SRC-001.md`
+- 基线：GSD Core + 薄 Project Map Capability
+- 明确排除：`Manage Project Requirements`
 
 ## 1. 目标
 

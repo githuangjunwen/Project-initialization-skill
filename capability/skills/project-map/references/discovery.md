@@ -1,35 +1,35 @@
-# Requirement Discovery
+# 需求探索
 
-Read this reference only while refining a focused Project, Epic, Feature, or Story.
+仅在完善当前聚焦的 Project、Epic、Feature 或 Story 时阅读本参考。
 
-## Explore in this order
+## 按此顺序探索
 
-1. Identify target users, their goal, and the observable outcome.
-2. Enumerate normal scenarios and boundary or failure scenarios.
-3. Separate business rules from implementation choices.
-4. Check permissions, approval, identity, deletion, retention, billing, privacy, security, compliance, and irreversible migration.
-5. Identify data inputs, ownership, lifecycle, integrations, constraints, performance, reliability, accessibility, observability, and support expectations.
-6. Turn observable behavior into acceptance criteria. For Stories, record a verification method. For Tasks, record a completion condition and concrete test steps.
+1. 识别目标用户、其目标和可观察的结果。
+2. 列举正常场景、边界场景和失败场景。
+3. 将业务规则与实现选择分开。
+4. 检查权限、审批、身份、删除、保留、计费、隐私、安全、合规和不可逆迁移。
+5. 识别数据输入、所有权、生命周期、集成、约束、性能、可靠性、无障碍、可观测性和支持预期。
+6. 将可观察行为转为验收标准。对 Story 记录验证方法；对 Task 记录完成条件和具体测试步骤。
 
-## Classify every statement
+## 对每条陈述分类
 
-| Class | Meaning | Write action |
+| 类别 | 含义 | 写入动作 |
 | --- | --- | --- |
-| Sourced fact | Present in a captured source or confirmed parent | `link <ID> --source <SRC-ID>` or inherit the parent trace |
-| Proposed rule | Plausible but not authorized | `decision create` with a proposal |
-| Open question | Required information is missing | `decision create` without a proposal |
-| Confirmed rule | User or authority source supplied evidence | `decide ... --confirm` |
+| 有来源的事实 | 存在于已捕获来源或已确认父节点中 | `link <ID> --source <SRC-ID>`，或继承父级追踪关系 |
+| 提议规则 | 合理但未经授权 | 使用带提议的 `decision create` |
+| 开放问题 | 缺少必要信息 | 使用不带提议的 `decision create` |
+| 已确认规则 | 用户或权威来源提供了证据 | `decide ... --confirm` |
 
-When a confirmed rule changes, create a replacement Decision and use `decide <old> --supersede-by <new>` with user or authority-source evidence. Never overwrite or erase the old history.
+已确认规则发生变化时，创建替代 Decision，并使用带有用户或权威来源证据的 `decide <old> --supersede-by <new>`。绝不覆盖或删除旧历史。
 
-Critical business rules are deletion, permission, approval, retention, billing, identity, security, privacy, compliance, and irreversible migration. AI may propose these rules but must not confirm them.
+关键业务规则包括删除、权限、审批、保留、计费、身份、安全、隐私、合规和不可逆迁移。AI 可以提议这些规则，但不得确认它们。
 
-## Stop condition by level
+## 各层级的停止条件
 
-- Project: vision, scope boundaries, success signals, and initial Epics are clear.
-- Epic: delivery outcome, dependency order, and candidate Features are clear.
-- Feature: summary, acceptance criteria, critical decisions, and GSD mapping are clear enough for plan readiness.
-- Story: user-observable slice and verification method are clear.
-- Task: completion condition and test steps are executable in one bounded implementation unit.
+- Project：愿景、范围边界、成功信号和初始 Epic 已清晰。
+- Epic：交付结果、依赖顺序和候选 Feature 已清晰。
+- Feature：摘要、验收标准、关键决策和 GSD 映射已足以通过计划就绪检查。
+- Story：用户可观察的切片和验证方法已清晰。
+- Task：完成条件和测试步骤可在一个边界明确的实施单元中执行。
 
-Do not expand every branch. Refine only the focused node and its next layer; leave sibling branches summarized.
+不要展开每一条分支。只完善聚焦节点及其下一层；同级分支保持摘要即可。

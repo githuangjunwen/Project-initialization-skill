@@ -1,16 +1,16 @@
-# Project Map Capability MVP Implementation Plan
+# Project Map 能力包 MVP 实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **供智能体执行者使用：** 必须使用子技能：推荐使用 `superpowers:subagent-driven-development`，或使用 `superpowers:executing-plans`，按任务逐项执行本计划。使用复选框（`- [ ]`）跟踪步骤。
 
-**Goal:** Build a project-local Project Map CLI and one GSD/Codex Skill that preserve original intent, manage a `P→E→F→S→T` tree, enforce confirmed business decisions, generate focused resume context, and maintain trace and impact metadata without duplicating GSD planning artifacts.
+**目标：** 构建项目本地 Project Map CLI 和一个 GSD/Codex Skill，以保留原始意图、管理 `P→E→F→S→T` 树、执行已确认的业务决策、生成聚焦的恢复上下文，并维护追踪与影响元数据，同时不重复 GSD 计划产物。
 
-**Architecture:** A zero-runtime-dependency Node.js CLI owns deterministic state under `.planning/project-map/`. A GSD Feature Capability owns one `project-map` namespace Skill that translates user intent into CLI operations and hands ready nodes to existing GSD workflows. Canonical JSON/source files are separated from generated Markdown and readiness stamps.
+**架构：** 零运行时依赖的 Node.js CLI 负责 `.planning/project-map/` 下的确定性状态。一个 GSD Feature Capability 拥有一个 `project-map` 命名空间 Skill，将用户意图转换为 CLI 操作，并将就绪节点交给既有 GSD 工作流。规范 JSON／来源文件与生成的 Markdown 和就绪标记相互分离。
 
-**Tech Stack:** Node.js 18+ ESM, Node standard library, `node:test`, GSD Core capability manifest and Codex Skill Markdown.
+**技术栈：** Node.js 18+ ESM、Node 标准库、`node:test`、GSD Core Capability 清单及 Codex Skill Markdown。
 
-**Spec:** `docs/design/2026-08-20-project-map-capability-design.md`
+**设计规格：** `docs/design/2026-08-20-project-map-capability-design.md`
 
-## Global Constraints
+## 全局约束
 
 - `Manage Project Requirements` is excluded from runtime dependencies, implementation sources, templates, and workflow behavior.
 - Runtime dependencies must remain zero.
