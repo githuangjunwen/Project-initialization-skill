@@ -4,6 +4,17 @@ import { readFile } from 'node:fs/promises';
 
 const skillRoot = 'capability/skills/project-map';
 
+test('发布包包含中文安装、多端更新与回滚说明', async () => {
+  const packageManifest = JSON.parse(await readFile('package.json', 'utf8'));
+  const guidePath = 'docs/安装部署与更新.md';
+  const guide = await readFile(guidePath, 'utf8');
+
+  assert.equal(packageManifest.files.includes(guidePath), true);
+  assert.match(guide, /每台设备的五分钟部署清单/);
+  assert.match(guide, /多设备日常操作协议/);
+  assert.match(guide, /回滚流程/);
+});
+
 test('capability exposes one project-map skill and no internal command module', async () => {
   const manifest = JSON.parse(await readFile('capability/capability.json', 'utf8'));
   assert.equal(manifest.id, 'project-map');

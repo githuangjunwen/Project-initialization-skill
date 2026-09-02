@@ -12,7 +12,8 @@
   "files": [
     "bin",
     "src",
-    "capability"
+    "capability",
+    "docs/安装部署与更新.md"
   ],
   "scripts": {
     "test": "node --test test/*.test.mjs",
