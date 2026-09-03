@@ -134,6 +134,15 @@ fi
   assert.match(await readFile(join(home, 'gsd-install-args.txt'), 'utf8'), /--profile=core/);
   await readFile(join(project, 'node_modules/.bin/project-map'), 'utf8');
 
+  const deviceOnlyResult = spawnSync('bash', [
+    'install.sh', '--allow-dirty'
+  ], { cwd: process.cwd(), env, encoding: 'utf8' });
+  assert.equal(
+    deviceOnlyResult.status,
+    0,
+    `${deviceOnlyResult.stdout}\n${deviceOnlyResult.stderr}`
+  );
+
   const fullResult = spawnSync('bash', [
     'install.sh', '--project', project, '--allow-dirty', '--gsd-profile', 'full'
   ], { cwd: process.cwd(), env, encoding: 'utf8' });

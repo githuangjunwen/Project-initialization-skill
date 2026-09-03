@@ -29,11 +29,11 @@ die() {
 usage() {
   cat <<'EOF'
 用法：
-  ./install.sh --project /opt/my-project [options]
-  ./install.sh --skip-cli [options]
+  ./install.sh [options]
+  ./install.sh --project /真实/项目路径 [options]
 
-安装 GSD、project-map Codex Skill；提供 --project 时，还会安装项目本地
-project-map CLI。目标项目已有 project-map 数据时会自动验证。
+不带 --project 时安装设备级 GSD 和 project-map Codex Skill。提供真实的
+--project 路径时，还会安装项目本地 CLI；已有 project-map 数据时自动验证。
 
 选项：
   --project PATH          安装 CLI 的目标项目
@@ -48,10 +48,10 @@ project-map CLI。目标项目已有 project-map 数据时会自动验证。
   -h, --help              显示帮助
 
 示例：
-  ./install.sh --project /opt/my-project
-  ./install.sh --project /opt/my-project \
+  ./install.sh
+  ./install.sh --project /opt/ceshi/ds-wechat-api-ubuntu
+  ./install.sh --project /opt/ceshi/ds-wechat-api-ubuntu \
     --init-title "项目名称" --init-text "项目的原始想法"
-  ./install.sh --skip-cli
 EOF
 }
 
@@ -113,12 +113,16 @@ if { [ -n "$INIT_TITLE" ] && [ -z "$INIT_TEXT" ]; } ||
   die "--init-title 与 --init-text 必须同时提供"
 fi
 
-if [ "$SKIP_CLI" -eq 1 ] && [ -n "$INIT_TITLE" ]; then
-  die "--skip-cli 与项目数据初始化参数不能同时使用"
+if [ -n "$INIT_TITLE" ] && [ -z "$PROJECT_DIR" ]; then
+  die "使用初始化参数时必须同时提供真实的 --project 路径"
 fi
 
-if [ "$SKIP_CLI" -eq 0 ] && [ -z "$PROJECT_DIR" ]; then
-  die "除非使用 --skip-cli，否则必须提供 --project"
+if [ "$SKIP_CLI" -eq 1 ] && { [ -n "$PROJECT_DIR" ] || [ -n "$INIT_TITLE" ]; }; then
+  die "--skip-cli 不能与 --project 或项目数据初始化参数同时使用"
+fi
+
+if [ -z "$PROJECT_DIR" ]; then
+  SKIP_CLI=1
 fi
 
 if [ "$SKIP_GSD" -eq 0 ]; then

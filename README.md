@@ -40,16 +40,22 @@ P-001     E-001   F-001    S-001   T-001
 ```bash
 git clone https://github.com/githuangjunwen/Project-initialization-skill.git
 cd Project-initialization-skill
-./install.sh --project /opt/my-project
+./install.sh
 ```
 
-`/opt/my-project` 是示例，必须替换为目标项目的真实绝对路径；该目录必须存在并包含 `package.json`。如果本仓库正好克隆在目标项目里面，可以使用 `./install.sh --project ..`。
+这条命令没有占位参数，会完成设备级 GSD 和 `project-map` Skill 安装。要同时向某个项目安装 CLI，必须传入真实存在且包含 `package.json` 的路径，例如：
+
+```bash
+./install.sh --project /opt/ceshi/ds-wechat-api-ubuntu
+```
+
+如果本仓库正好克隆在目标项目里面，可以使用 `./install.sh --project ..`。
 
 如果目标项目还没有 `.planning/project-map`，并且你已经准备好真实的项目名称与原始需求，可以在同一次安装中初始化：
 
 ```bash
 ./install.sh \
-  --project /opt/my-project \
+  --project /opt/ceshi/ds-wechat-api-ubuntu \
   --init-title "项目名称" \
   --init-text "项目的原始想法"
 ```
