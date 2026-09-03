@@ -24,6 +24,7 @@ test('发布包包含中文安装、多端更新与回滚说明', async () => {
   assert.match(guide, /回滚流程/);
   assert.match(guide, /\.agents\/skills\/project-map/);
   assert.match(guide, /@opengsd\/gsd-core@1\.11\.0/);
+  assert.match(guide, /GSD 1\.11\.0 需要 Node\.js 24/);
   assert.match(guide, /install-skill-from-github\.py/);
   assert.match(guide, /每条安装命令实际提供什么/);
   assert.match(guide, /\.\/install\.sh --project/);
@@ -36,6 +37,7 @@ test('发布包包含中文安装、多端更新与回滚说明', async () => {
   assert.doesNotMatch(readme, /install-skill-from-github\.py/);
   assert.doesNotMatch(readme, /@opengsd\/gsd-core@/);
   assert.doesNotMatch(readme, /gsd-tools\.cjs/);
+  assert.doesNotMatch(readme, /\/absolute\/path\/to\/target-project/);
 
   // 历史设计与实施计划保留为证据，但必须明确阻止读者当作现行手册。
   assert.match(design, /历史设计文档/);
@@ -62,15 +64,33 @@ test('一键安装脚本在隔离环境部署并重复验证四层安装', async
   await mkdir(project, { recursive: true });
   await writeFile(join(project, 'package.json'), '{"name":"target","private":true}\n');
 
+  const fakeNode = join(fakeBin, 'node');
+  await writeFile(fakeNode, `#!/bin/sh
+set -eu
+if [ "\${1:-}" = "-p" ]; then
+  printf '24\n'
+  exit 0
+fi
+exec "${process.execPath}" "$@"
+`);
+  await chmod(fakeNode, 0o755);
+
   const fakeNpx = join(fakeBin, 'npx');
   await writeFile(fakeNpx, `#!/bin/sh
 set -eu
 mkdir -p "$HOME/.codex/gsd-core"
 mkdir -p "$HOME/.agents/skills/gsd-new-project"
-mkdir -p "$HOME/.agents/skills/gsd-debug"
+mkdir -p "$HOME/.agents/skills/gsd-surface"
 printf '1.11.0\\n' > "$HOME/.codex/gsd-core/VERSION"
 : > "$HOME/.agents/skills/gsd-new-project/SKILL.md"
-: > "$HOME/.agents/skills/gsd-debug/SKILL.md"
+: > "$HOME/.agents/skills/gsd-surface/SKILL.md"
+case "$*" in
+  *--profile=full*)
+    mkdir -p "$HOME/.agents/skills/gsd-debug"
+    : > "$HOME/.agents/skills/gsd-debug/SKILL.md"
+    ;;
+esac
+printf '%s\\n' "$*" > "$HOME/gsd-install-args.txt"
 `);
   await chmod(fakeNpx, 0o755);
 
@@ -110,8 +130,68 @@ fi
     (await readFile(join(home, '.codex/gsd-core/VERSION'), 'utf8')).trim(),
     '1.11.0'
   );
-  await readFile(join(home, '.agents/skills/gsd-debug/SKILL.md'), 'utf8');
+  await readFile(join(home, '.agents/skills/gsd-surface/SKILL.md'), 'utf8');
+  assert.match(await readFile(join(home, 'gsd-install-args.txt'), 'utf8'), /--profile=core/);
   await readFile(join(project, 'node_modules/.bin/project-map'), 'utf8');
+
+  const fullResult = spawnSync('bash', [
+    'install.sh', '--project', project, '--allow-dirty', '--gsd-profile', 'full'
+  ], { cwd: process.cwd(), env, encoding: 'utf8' });
+  assert.equal(fullResult.status, 0, `${fullResult.stdout}\n${fullResult.stderr}`);
+  await readFile(join(home, '.agents/skills/gsd-debug/SKILL.md'), 'utf8');
+  assert.match(await readFile(join(home, 'gsd-install-args.txt'), 'utf8'), /--profile=full/);
+});
+
+test('一键安装脚本在占位目标路径上先失败且不产生半安装状态', async () => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'project-map-preflight-'));
+  const home = join(sandbox, 'home');
+  await mkdir(home, { recursive: true });
+
+  const env = { ...process.env, HOME: home };
+  delete env.CODEX_HOME;
+  const result = spawnSync('bash', [
+    'install.sh', '--project', '/absolute/path/to/target-project', '--allow-dirty'
+  ], { cwd: process.cwd(), env, encoding: 'utf8' });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /文档占位符/);
+  assert.equal(spawnSync('test', ['-e', join(home, '.agents')]).status, 1);
+});
+
+test('完整安装在 Node.js 版本不满足 GSD 要求时先失败', async () => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'project-map-node-preflight-'));
+  const fakeBin = join(sandbox, 'bin');
+  const home = join(sandbox, 'home');
+  const project = join(sandbox, 'target-project');
+  await mkdir(fakeBin, { recursive: true });
+  await mkdir(home, { recursive: true });
+  await mkdir(project, { recursive: true });
+  await writeFile(join(project, 'package.json'), '{"name":"target","private":true}\n');
+
+  const fakeNode = join(fakeBin, 'node');
+  await writeFile(fakeNode, `#!/bin/sh
+set -eu
+if [ "\${1:-}" = "-p" ]; then
+  printf '22\n'
+else
+  printf 'v22.23.2\n'
+fi
+`);
+  await chmod(fakeNode, 0o755);
+
+  const env = {
+    ...process.env,
+    HOME: home,
+    PATH: `${fakeBin}:${process.env.PATH}`
+  };
+  delete env.CODEX_HOME;
+  const result = spawnSync('bash', [
+    'install.sh', '--project', project, '--allow-dirty'
+  ], { cwd: process.cwd(), env, encoding: 'utf8' });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /GSD 1\.11\.0 要求 Node\.js 24/);
+  assert.equal(spawnSync('test', ['-e', join(home, '.agents')]).status, 1);
 });
 
 test('capability exposes one project-map skill and no internal command module', async () => {

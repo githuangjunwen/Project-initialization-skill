@@ -3,7 +3,7 @@
 set -euo pipefail
 
 GSD_VERSION="1.11.0"
-GSD_PROFILE="full"
+GSD_PROFILE="core"
 PROJECT_DIR=""
 INIT_TITLE=""
 INIT_TEXT=""
@@ -11,6 +11,7 @@ SKIP_GSD=0
 SKIP_CLI=0
 FORCE_SKILL=0
 ALLOW_DIRTY=0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 log() {
   printf '[project-map] %s\n' "$*"
@@ -28,7 +29,7 @@ die() {
 usage() {
   cat <<'EOF'
 用法：
-  ./install.sh --project /path/to/target-project [options]
+  ./install.sh --project /opt/my-project [options]
   ./install.sh --skip-cli [options]
 
 安装 GSD、project-map Codex Skill；提供 --project 时，还会安装项目本地
@@ -39,7 +40,7 @@ project-map CLI。目标项目已有 project-map 数据时会自动验证。
   --init-title TITLE      用此项目名称初始化新的 project-map 数据
   --init-text TEXT        与 --init-title 一起使用的原始需求
   --gsd-version VERSION   GSD 版本（默认：1.11.0）
-  --gsd-profile PROFILE   GSD profile（默认：full）
+  --gsd-profile PROFILE   GSD profile：core、standard 或 full（默认：core）
   --skip-gsd              不安装或验证 GSD
   --skip-cli              不向目标项目安装 CLI
   --force-skill           备份并替换内容不同的既有 project-map Skill
@@ -120,6 +121,31 @@ if [ "$SKIP_CLI" -eq 0 ] && [ -z "$PROJECT_DIR" ]; then
   die "除非使用 --skip-cli，否则必须提供 --project"
 fi
 
+if [ "$SKIP_GSD" -eq 0 ]; then
+  case "$GSD_PROFILE" in
+    core|standard|full) ;;
+    *) die "不支持的 GSD profile：${GSD_PROFILE}；可选值为 core、standard、full" ;;
+  esac
+fi
+
+# Validate every user-controlled target before installing GSD or copying Skills.
+# This prevents an invalid project path from leaving a misleading partial install.
+if [ "$SKIP_CLI" -eq 0 ]; then
+  case "$PROJECT_DIR" in
+    /absolute/path/to/target-project|/path/to/target-project)
+      SOURCE_PARENT="$(dirname "$SCRIPT_DIR")"
+      if [ -f "$SOURCE_PARENT/package.json" ]; then
+        die "--project 收到的是文档占位符：${PROJECT_DIR}；按当前目录结构可尝试：./install.sh --project '${SOURCE_PARENT}'"
+      fi
+      die "--project 收到的是文档占位符：${PROJECT_DIR}；请替换为包含 package.json 的真实项目目录"
+      ;;
+  esac
+  [ -d "$PROJECT_DIR" ] || die "目标项目不存在：$PROJECT_DIR"
+  PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd -P)"
+  [ "$PROJECT_DIR" != "$SCRIPT_DIR" ] || die "目标项目不能是安装器源码仓库本身"
+  [ -f "$PROJECT_DIR/package.json" ] || die "目标项目缺少 package.json：$PROJECT_DIR"
+fi
+
 for command_name in git node npm npx; do
   command -v "$command_name" >/dev/null 2>&1 || die "缺少必要命令：$command_name"
 done
@@ -133,12 +159,15 @@ case "$NODE_MAJOR" in
 esac
 [ "$NODE_MAJOR" -ge 18 ] || die "需要 Node.js 18 或更高版本"
 
+if [ "$SKIP_GSD" -eq 0 ] && [ "$GSD_VERSION" = "1.11.0" ] && [ "$NODE_MAJOR" -lt 24 ]; then
+  die "GSD 1.11.0 要求 Node.js 24 或更高版本；当前为 $(node --version)。升级 Node.js，或仅安装 Project Map 时使用 --skip-gsd"
+fi
+
 case "$(uname -s)" in
   Darwin|Linux) ;;
   *) die "当前一键安装脚本只支持 macOS 与 Linux" ;;
 esac
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 SKILL_SOURCE="$SCRIPT_DIR/capability/skills/project-map"
 [ -f "$SKILL_SOURCE/SKILL.md" ] || die "缺少 project-map Skill 源码：$SKILL_SOURCE"
 
@@ -192,15 +221,17 @@ if [ "$SKIP_GSD" -eq 0 ]; then
     die "已安装 GSD 版本与 $GSD_VERSION 不一致"
   [ -f "$SKILLS_ROOT/gsd-new-project/SKILL.md" ] ||
     die "GSD Skill 验证失败：缺少 gsd-new-project"
-  [ -f "$SKILLS_ROOT/gsd-debug/SKILL.md" ] ||
-    die "GSD 已安装但未暴露 gsd-debug；请在 Codex 中运行 \$gsd-surface profile full，然后重跑安装脚本"
+  [ -f "$SKILLS_ROOT/gsd-surface/SKILL.md" ] ||
+    die "GSD Skill 验证失败：缺少 gsd-surface"
+  case ",${GSD_PROFILE}," in
+    *,full,*)
+      [ -f "$SKILLS_ROOT/gsd-debug/SKILL.md" ] ||
+        die "GSD full profile 验证失败：缺少 gsd-debug"
+      ;;
+  esac
 fi
 
 if [ "$SKIP_CLI" -eq 0 ]; then
-  [ -d "$PROJECT_DIR" ] || die "目标项目不存在：$PROJECT_DIR"
-  PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd -P)"
-  [ "$PROJECT_DIR" != "$SCRIPT_DIR" ] || die "目标项目不能是安装器源码仓库本身"
-  [ -f "$PROJECT_DIR/package.json" ] || die "目标项目缺少 package.json：$PROJECT_DIR"
   CLI_SPEC="git+$SOURCE_REPOSITORY_URL#$SOURCE_COMMIT"
 
   log "正在向 $PROJECT_DIR 安装 commit $SOURCE_COMMIT 对应的 project-map CLI"

@@ -31,7 +31,7 @@ P-001     E-001   F-001    S-001   T-001
 
 ## 快速安装（新设备）
 
-要求：已安装 Git、Node.js 18+ 与 Codex CLI 或 Codex Desktop。
+要求：已安装 Git、Codex CLI 或 Codex Desktop。完整安装 GSD 1.11.0 需要 Node.js 24+；仅使用 Project Map 时需要 Node.js 18+。
 
 > 完整可用并不是“安装一个 Skill”：GSD、`project-map` Skill、项目本地 CLI 和 `.planning/project-map` 数据是四个独立层次。完整的多设备、更新与回滚说明见[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)。
 
@@ -40,19 +40,21 @@ P-001     E-001   F-001    S-001   T-001
 ```bash
 git clone https://github.com/githuangjunwen/Project-initialization-skill.git
 cd Project-initialization-skill
-./install.sh --project /absolute/path/to/target-project
+./install.sh --project /opt/my-project
 ```
+
+`/opt/my-project` 是示例，必须替换为目标项目的真实绝对路径；该目录必须存在并包含 `package.json`。如果本仓库正好克隆在目标项目里面，可以使用 `./install.sh --project ..`。
 
 如果目标项目还没有 `.planning/project-map`，并且你已经准备好真实的项目名称与原始需求，可以在同一次安装中初始化：
 
 ```bash
 ./install.sh \
-  --project /absolute/path/to/target-project \
+  --project /opt/my-project \
   --init-title "项目名称" \
   --init-text "项目的原始想法"
 ```
 
-脚本会安装并验收所请求的组件，把项目 CLI 锁定到当前克隆的 Git commit；已有不同内容的 Skill 默认不会被覆盖。所有选项、等价手工步骤、Windows 安装、更新、回滚和故障排查只在[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)维护，避免两份命令长期漂移。
+脚本默认使用 GSD `core` profile，只显示 8 个核心 GSD Skills 和 `project-map`；项目需要 `$gsd-debug`、安全审计、UI 或其他扩展能力时，传入 `--gsd-profile full`。脚本会验收所请求的组件，并把项目 CLI 锁定到当前克隆的 Git commit；已有不同内容的 Skill 默认不会被覆盖。所有选项、等价手工步骤、Windows 安装、更新、回滚和故障排查只在[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)维护，避免两份命令长期漂移。
 
 ## 初始化与使用
 
