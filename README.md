@@ -33,7 +33,7 @@ P-001     E-001   F-001    S-001   T-001
 
 要求：已安装 Git、Codex CLI 或 Codex Desktop。完整安装 GSD 1.11.0 需要 Node.js 24+；仅使用 Project Map 时需要 Node.js 18+。
 
-> 完整可用并不是“安装一个 Skill”：GSD、`project-map` Skill、项目本地 CLI 和 `.planning/project-map` 数据是四个独立层次。完整的多设备、更新与回滚说明见[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)。
+安装后只有两个层次：设备共享 GSD、`project-map` Skill 与 CLI；各项目保存自己的 `.planning/` 数据。完整的多设备、更新与回滚说明见[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)。
 
 从 GitHub 克隆后，推荐直接运行一键安装脚本：
 
@@ -43,13 +43,21 @@ cd Project-initialization-skill
 ./install.sh
 ```
 
-这条命令没有占位参数，会完成设备级 GSD 和 `project-map` Skill 安装。要同时向某个项目安装 CLI，必须传入真实存在且包含 `package.json` 的路径，例如：
+这条命令没有占位参数，会一次完成设备级 GSD、`project-map` Skill 和共享 CLI 安装。安装后重启 Codex，在任意新项目目录输入：
+
+```text
+$project-map 初始化新项目
+```
+
+Skill 会保存未经改写的原始想法，并在项目尚未建立 GSD 文件时继续执行 `$gsd-new-project`。无需为每个项目安装 npm 依赖。
+
+要在安装后立即验证某个已有项目，可以传入真实存在的路径：
 
 ```bash
 ./install.sh --project /opt/ceshi/ds-wechat-api-ubuntu
 ```
 
-如果本仓库正好克隆在目标项目里面，可以使用 `./install.sh --project ..`。
+`--project` 只用于验证或通过下面的参数初始化数据，不是安装 CLI 的必需参数。如果本仓库正好克隆在目标项目里面，可以使用 `./install.sh --project ..`。
 
 如果目标项目还没有 `.planning/project-map`，并且你已经准备好真实的项目名称与原始需求，可以在同一次安装中初始化：
 
@@ -60,58 +68,72 @@ cd Project-initialization-skill
   --init-text "项目的原始想法"
 ```
 
-脚本默认使用 GSD `core` profile，只显示 8 个核心 GSD Skills 和 `project-map`；项目需要 `$gsd-debug`、安全审计、UI 或其他扩展能力时，传入 `--gsd-profile full`。脚本会验收所请求的组件，并把项目 CLI 锁定到当前克隆的 Git commit；已有不同内容的 Skill 默认不会被覆盖。所有选项、等价手工步骤、Windows 安装、更新、回滚和故障排查只在[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)维护，避免两份命令长期漂移。
+脚本默认使用 GSD `core` profile，只显示 8 个核心 GSD Skills 和 `project-map`；项目需要 `$gsd-debug`、安全审计、UI 或其他扩展能力时，传入 `--gsd-profile full`。脚本会验收所请求的组件，并从当前克隆安装同源的设备 CLI；已有不同内容的 Skill 默认不会被覆盖。所有选项、Windows 安装、更新、回滚和故障排查只在[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)维护，避免两份命令长期漂移。
+
+快速卸载设备级组件：
+
+```bash
+./uninstall.sh
+```
+
+清理旧版本遗留在目标项目中的 npm 依赖：
+
+```bash
+./uninstall.sh --project /opt/ceshi/ds-wechat-api-ubuntu
+```
+
+项目数据默认保留；完整重测可追加 `--reset-data --reset-surface`，数据与设置会先备份而不是直接删除。
 
 ## 初始化与使用
 
-使用未修改的初始想法进行初始化：
+安装完成后，推荐在 Codex 中使用 `$project-map 初始化新项目`。直接使用 CLI 时，用未修改的初始想法初始化：
 
 ```bash
-npx project-map init \
+project-map init \
   --project-title "团队审批" \
   --text "做一个团队审批工具"
 
-npx project-map add project --title "审批工具" --source SRC-001
-npx project-map add epic --parent P-001 --title "审批流程"
+project-map add project --title "审批工具" --source SRC-001
+project-map add epic --parent P-001 --title "审批流程"
 ```
 
 `init` 会拒绝覆盖已有 Project Map。后续澄清使用 `capture`，它总会创建新的 `SRC-NNN`：
 
 ```bash
-npx project-map capture --text "审批记录保留七年是待确认规则" --origin user
-npx project-map link E-001 \
+project-map capture --text "审批记录保留七年是待确认规则" --origin user
+project-map link E-001 \
   --source SRC-002 \
   --source-excerpt "审批记录保留七年"
 ```
 
-开发本仓库时，请以 `node bin/project-map.mjs` 替换 `npx project-map`。
+开发本仓库时，请以 `node bin/project-map.mjs` 替换 `project-map`。
 
 ## 逐步工作流
 
 只聚焦正在完善的分支：
 
 ```bash
-npx project-map focus E-002
-npx project-map status E-002 --json
+project-map focus E-002
+project-map status E-002 --json
 ```
 
-安装 Capability Skill 后，自然语言请求 `推进 E-002` 会先经过 `focus E-002`，读取 `CURRENT.md`，且只加载其 `must_read` 上下文。默认仍会排除无关分支的正文。
+安装 Skill 后，自然语言请求 `推进 E-002` 会先经过 `focus E-002`，读取 `CURRENT.md`，且只加载其 `must_read` 上下文。默认仍会排除无关分支的正文。
 
 逐步添加 Feature 规格：
 
 ```bash
-npx project-map add feature --parent E-002 --title "删除申请"
-npx project-map node update F-001 \
+project-map add feature --parent E-002 --title "删除申请"
+project-map node update F-001 \
   --summary "用户提交并追踪删除申请"
-npx project-map ac add F-001 --text "用户可以提交删除申请"
+project-map ac add F-001 --text "用户可以提交删除申请"
 ```
 
 Story 与 Task 可以记录可执行的验证细节：
 
 ```bash
-npx project-map node update S-001 \
+project-map node update S-001 \
   --verification-method "提交申请并检查状态"
-npx project-map node update T-001 \
+project-map node update T-001 \
   --completion-condition "接口和自动化测试通过" \
   --test-step "运行单元测试" \
   --test-step "运行审批流程集成测试"
@@ -122,12 +144,12 @@ npx project-map node update T-001 \
 AI 建议始终保持为 `proposed`。审批、权限、删除、保留、计费、身份、安全、隐私、合规和不可逆迁移等关键类别不能被静默确认：
 
 ```bash
-npx project-map decision create F-001 \
+project-map decision create F-001 \
   --category approval \
   --question "谁批准删除？" \
   --proposal "管理员"
 
-npx project-map decide D-001 \
+project-map decide D-001 \
   --confirm \
   --authority user \
   --evidence "产品负责人在本次任务中确认"
@@ -138,7 +160,7 @@ npx project-map decide D-001 \
 已确认的规则发生变化时，创建替代规则，并将旧决策保留为已替代：
 
 ```bash
-npx project-map decide D-001 \
+project-map decide D-001 \
   --supersede-by D-002 \
   --authority user \
   --evidence "审批政策已变更"
@@ -149,8 +171,8 @@ npx project-map decide D-001 \
 聚焦节点后，在计划或编码前立即运行确定性门槛：
 
 ```bash
-npx project-map readiness F-001 --stage plan --json
-npx project-map readiness T-001 --stage code --json
+project-map readiness F-001 --stage plan --json
+project-map readiness T-001 --stage code --json
 ```
 
 就绪时返回退出码 `0`；被阻断时返回退出码 `3` 及精确阻断代码。被阻断时不得开始 GSD 计划或执行。
@@ -158,11 +180,11 @@ npx project-map readiness T-001 --stage code --json
 应关联而非复制 GSD 产物：
 
 ```bash
-npx project-map link F-001 \
+project-map link F-001 \
   --gsd-requirement DELETE-01 \
   --gsd-phase 2
 
-npx project-map link T-001 \
+project-map link T-001 \
   --gsd-plan .planning/phases/02-delete/02-01-PLAN.md
 ```
 
@@ -173,17 +195,17 @@ npx project-map link T-001 \
 只关联实际变更中观察到的证据：
 
 ```bash
-npx project-map link T-001 \
+project-map link T-001 \
   --code src/approval/delete.mjs \
   --test test/approval/delete.test.mjs
-npx project-map trace F-001 --json
+project-map trace F-001 --json
 ```
 
 父需求变更时，标记后代待复核，但不重写它们：
 
 ```bash
-npx project-map impact E-002 --json
-npx project-map impact review F-001 \
+project-map impact E-002 --json
+project-map impact review F-001 \
   --authority user \
   --note "已按新的 Epic 边界复核"
 ```
@@ -195,7 +217,7 @@ npx project-map impact review F-001 \
 需求或代码变更后运行审计：
 
 ```bash
-npx project-map check --json
+project-map check --json
 ```
 
 `check` 会验证来源哈希和元数据、节点／索引一致性、层级与环、来源与决策引用、GSD 反向链接、证据路径、生成哈希以及就绪哈希。缺少已关联证据是警告；规范数据损坏是错误。
@@ -211,9 +233,9 @@ npx project-map check --json
 
 ## Capability 边界
 
-该 Capability 只暴露一个项目本地 Skill：`project-map`。需求探索、就绪检查和 GSD 交接细节分别位于按需读取的参考资料中。其清单面向 GSD `>=1.6.0 <2.0.0` 与 Codex。
+该 Capability 只暴露一个设备级 Skill：`project-map`。需求探索、就绪检查和 GSD 交接细节分别位于按需读取的参考资料中。其清单面向 GSD `>=1.6.0 <2.0.0` 与 Codex。
 
-高级项目级 Capability 集成不替代 GSD runtime、项目 CLI 或数据初始化。具体命令只在[安装指南的 GSD Capability 章节](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md#gsd-capability-%E5%AE%89%E8%A3%85)维护。
+设备级 Skill 不替代 GSD runtime、共享 CLI 或项目数据初始化；一键脚本会统一安装并验收这些运行组件。
 
 ## 有意延期的内容
 

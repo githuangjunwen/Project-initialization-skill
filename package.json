@@ -11,6 +11,7 @@
   },
   "files": [
     "install.sh",
+    "uninstall.sh",
     "bin",
     "src",
     "capability",

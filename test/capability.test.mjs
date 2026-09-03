@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -19,21 +19,25 @@ test('发布包包含中文安装、多端更新与回滚说明', async () => {
 
   assert.equal(packageManifest.files.includes(guidePath), true);
   assert.equal(packageManifest.files.includes('install.sh'), true);
+  assert.equal(packageManifest.files.includes('uninstall.sh'), true);
   assert.match(guide, /每台设备的五分钟部署清单/);
   assert.match(guide, /多设备日常操作协议/);
   assert.match(guide, /回滚流程/);
   assert.match(guide, /\.agents\/skills\/project-map/);
-  assert.match(guide, /@opengsd\/gsd-core@1\.11\.0/);
   assert.match(guide, /GSD 1\.11\.0 需要 Node\.js 24/);
-  assert.match(guide, /install-skill-from-github\.py/);
-  assert.match(guide, /每条安装命令实际提供什么/);
+  assert.match(guide, /~\/\.local\/bin\/project-map/);
+  assert.match(guide, /\$project-map 初始化新项目/);
   assert.match(guide, /\.\/install\.sh --project/);
+  assert.match(guide, /\.\/uninstall\.sh/);
   assert.match(guide, /文档职责与单一事实来源/);
+  assert.doesNotMatch(guide, /node_modules\/\.bin\/project-map/);
+  assert.doesNotMatch(guide, /npx project-map/);
   assert.doesNotMatch(guide, /mkdir -p ~\/\.codex\/skills/);
   assert.doesNotMatch(guide, /test ! -e ~\/\.codex\/skills\/project-map/);
 
   // README 只保留一键入口；容易漂移的精确手工命令集中到完整指南。
-  assert.match(readme, /\.\/install\.sh --project/);
+  assert.match(readme, /\.\/install\.sh/);
+  assert.match(readme, /\$project-map 初始化新项目/);
   assert.doesNotMatch(readme, /install-skill-from-github\.py/);
   assert.doesNotMatch(readme, /@opengsd\/gsd-core@/);
   assert.doesNotMatch(readme, /gsd-tools\.cjs/);
@@ -45,6 +49,100 @@ test('发布包包含中文安装、多端更新与回滚说明', async () => {
   assert.match(historicalPlan, /当前 GSD 1\.11\.0 不应照抄执行/);
 });
 
+test('一键卸载脚本移除运行组件并为数据与 surface 创建可恢复备份', async () => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'project-map-uninstaller-'));
+  const fakeBin = join(sandbox, 'bin');
+  const home = join(sandbox, 'home');
+  const project = join(sandbox, 'target-project');
+  const skill = join(home, '.agents/skills/project-map');
+  const gsdSkill = join(home, '.agents/skills/gsd-new-project');
+  const gsdCore = join(home, '.codex/gsd-core');
+  const projectData = join(project, '.planning/project-map');
+  await mkdir(fakeBin, { recursive: true });
+  await mkdir(skill, { recursive: true });
+  await mkdir(gsdSkill, { recursive: true });
+  await mkdir(gsdCore, { recursive: true });
+  await mkdir(projectData, { recursive: true });
+  await mkdir(join(home, '.local/bin'), { recursive: true });
+  await mkdir(join(home, '.local/lib/node_modules/project-map-capability'), { recursive: true });
+  await writeFile(join(project, 'package.json'), '{"name":"target","private":true}\n');
+  await writeFile(join(skill, 'SKILL.md'), 'project-map\n');
+  await writeFile(join(gsdSkill, 'SKILL.md'), 'gsd\n');
+  await writeFile(join(gsdCore, 'VERSION'), '1.11.0\n');
+  await writeFile(join(home, '.codex/.gsd-surface.json'), '{"baseProfile":"full"}\n');
+  await writeFile(join(projectData, 'index.json'), '{}\n');
+  await writeFile(join(home, '.local/bin/project-map'), '#!/bin/sh\nexit 0\n');
+  await chmod(join(home, '.local/bin/project-map'), 0o755);
+
+  const fakeNpx = join(fakeBin, 'npx');
+  await writeFile(fakeNpx, `#!/bin/sh
+set -eu
+printf '%s\\n' "$*" > "$HOME/gsd-uninstall-args.txt"
+rm -f "$HOME/.codex/gsd-core/VERSION"
+rm -rf "$HOME/.agents/skills/gsd-new-project"
+`);
+  await chmod(fakeNpx, 0o755);
+
+  const fakeNpm = join(fakeBin, 'npm');
+  await writeFile(fakeNpm, `#!/bin/sh
+set -eu
+printf '%s\\n' "$*" >> "$HOME/npm-uninstall-args.txt"
+case "$*" in
+  *"--global --prefix $HOME/.local"*)
+    rm -f "$HOME/.local/bin/project-map"
+    rm -rf "$HOME/.local/lib/node_modules/project-map-capability"
+    ;;
+esac
+`);
+  await chmod(fakeNpm, 0o755);
+
+  const env = {
+    ...process.env,
+    HOME: home,
+    PATH: `${fakeBin}:${process.env.PATH}`
+  };
+  delete env.CODEX_HOME;
+
+  for (let run = 0; run < 2; run += 1) {
+    const result = spawnSync('bash', [
+      'uninstall.sh', '--project', project, '--reset-data', '--reset-surface'
+    ], { cwd: process.cwd(), env, encoding: 'utf8' });
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  }
+
+  await assert.rejects(readFile(join(skill, 'SKILL.md'), 'utf8'));
+  await assert.rejects(readFile(join(gsdCore, 'VERSION'), 'utf8'));
+  await assert.rejects(readFile(join(home, '.codex/.gsd-surface.json'), 'utf8'));
+  await assert.rejects(readFile(join(projectData, 'index.json'), 'utf8'));
+  await assert.rejects(readFile(join(home, '.local/bin/project-map'), 'utf8'));
+
+  const backupIds = await readdir(join(home, '.project-map-uninstall-backups'));
+  assert.equal(backupIds.length, 1);
+  await readFile(join(
+    home,
+    '.project-map-uninstall-backups',
+    backupIds[0],
+    'project-map-skill',
+    'SKILL.md'
+  ), 'utf8');
+  await readFile(join(
+    home,
+    '.project-map-uninstall-backups',
+    backupIds[0],
+    'gsd-surface.json'
+  ), 'utf8');
+
+  const planningEntries = await readdir(join(project, '.planning'));
+  const dataBackup = planningEntries.find((name) => name.startsWith('project-map.uninstalled.'));
+  assert.ok(dataBackup);
+  await readFile(join(project, '.planning', dataBackup, 'index.json'), 'utf8');
+  assert.match(await readFile(join(home, 'gsd-uninstall-args.txt'), 'utf8'), /--uninstall/);
+  assert.match(
+    await readFile(join(home, 'npm-uninstall-args.txt'), 'utf8'),
+    /uninstall --global --prefix .*\.local project-map-capability/
+  );
+});
+
 test('package 与 capability 清单版本保持一致', async () => {
   const [packageManifest, capabilityManifest] = await Promise.all([
     readFile('package.json', 'utf8').then(JSON.parse),
@@ -54,7 +152,7 @@ test('package 与 capability 清单版本保持一致', async () => {
   assert.equal(packageManifest.version, capabilityManifest.version);
 });
 
-test('一键安装脚本在隔离环境部署并重复验证四层安装', async () => {
+test('一键安装脚本在隔离环境部署并重复验证设备级组件', async () => {
   const sandbox = await mkdtemp(join(tmpdir(), 'project-map-installer-'));
   const fakeBin = join(sandbox, 'bin');
   const home = join(sandbox, 'home');
@@ -62,7 +160,6 @@ test('一键安装脚本在隔离环境部署并重复验证四层安装', async
   await mkdir(fakeBin, { recursive: true });
   await mkdir(home, { recursive: true });
   await mkdir(project, { recursive: true });
-  await writeFile(join(project, 'package.json'), '{"name":"target","private":true}\n');
 
   const fakeNode = join(fakeBin, 'node');
   await writeFile(fakeNode, `#!/bin/sh
@@ -94,20 +191,31 @@ printf '%s\\n' "$*" > "$HOME/gsd-install-args.txt"
 `);
   await chmod(fakeNpx, 0o755);
 
-  const fakeNpm = join(fakeBin, 'npm');
+const fakeNpm = join(fakeBin, 'npm');
   await writeFile(fakeNpm, `#!/bin/sh
 set -eu
-if [ "$1" = "--prefix" ]; then
-  project_dir="$2"
-  shift 2
-else
+if [ "$1" = "pack" ] && [ "$3" = "--pack-destination" ]; then
+  mkdir -p "$4"
+  : > "$4/project-map-capability-test.tgz"
+  printf 'project-map-capability-test.tgz\\n'
+  exit 0
+fi
+if [ "$1" != "install" ] || [ "$2" != "--global" ] || [ "$3" != "--prefix" ]; then
   exit 2
 fi
-if [ "$1" = "install" ]; then
-  mkdir -p "$project_dir/node_modules/.bin"
-  printf '#!/bin/sh\\nexit 0\\n' > "$project_dir/node_modules/.bin/project-map"
-  chmod +x "$project_dir/node_modules/.bin/project-map"
+cli_prefix="$4"
+mkdir -p "$cli_prefix/bin"
+cat > "$cli_prefix/bin/project-map" <<'SCRIPT'
+#!/bin/sh
+set -eu
+printf '%s\\n' "$*" >> "$HOME/cli-invocations.txt"
+if [ "\${1:-}" = "init" ]; then
+  mkdir -p .planning/project-map
+  printf '{}\\n' > .planning/project-map/index.json
 fi
+exit 0
+SCRIPT
+chmod +x "$cli_prefix/bin/project-map"
 `);
   await chmod(fakeNpm, 0o755);
 
@@ -132,7 +240,7 @@ fi
   );
   await readFile(join(home, '.agents/skills/gsd-surface/SKILL.md'), 'utf8');
   assert.match(await readFile(join(home, 'gsd-install-args.txt'), 'utf8'), /--profile=core/);
-  await readFile(join(project, 'node_modules/.bin/project-map'), 'utf8');
+  await readFile(join(home, '.local/bin/project-map'), 'utf8');
 
   const deviceOnlyResult = spawnSync('bash', [
     'install.sh', '--allow-dirty'
@@ -142,6 +250,16 @@ fi
     0,
     `${deviceOnlyResult.stdout}\n${deviceOnlyResult.stderr}`
   );
+
+  const newProject = join(sandbox, 'blank-project');
+  await mkdir(newProject);
+  const initResult = spawnSync('bash', [
+    'install.sh', '--project', newProject, '--allow-dirty',
+    '--init-title', '新项目', '--init-text', '未经改写的原始想法'
+  ], { cwd: process.cwd(), env, encoding: 'utf8' });
+  assert.equal(initResult.status, 0, `${initResult.stdout}\n${initResult.stderr}`);
+  await readFile(join(newProject, '.planning/project-map/index.json'), 'utf8');
+  assert.match(await readFile(join(home, 'cli-invocations.txt'), 'utf8'), /add project --title 新项目 --source SRC-001/);
 
   const fullResult = spawnSync('bash', [
     'install.sh', '--project', project, '--allow-dirty', '--gsd-profile', 'full'
@@ -226,6 +344,11 @@ test('skill routes Chinese resume intent through focus before GSD handoff', asyn
   assert.match(skill, /references\/discovery\.md/);
   assert.match(skill, /references\/readiness\.md/);
   assert.match(skill, /references\/gsd-handoff\.md/);
+  assert.match(skill, /初始化新项目/);
+  assert.match(skill, /\$HOME\/\.local\/bin\/project-map/);
+  assert.match(skill, /\$gsd-new-project/);
+  assert.match(skill, /add project.*SRC-001/);
+  assert.match(skill, /不得改走 `gsd-new-milestone`/);
   assert.equal(skill.trim().split(/\s+/).length < 500, true);
 });
 

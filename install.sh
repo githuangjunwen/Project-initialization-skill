@@ -32,17 +32,17 @@ usage() {
   ./install.sh [options]
   ./install.sh --project /真实/项目路径 [options]
 
-不带 --project 时安装设备级 GSD 和 project-map Codex Skill。提供真实的
---project 路径时，还会安装项目本地 CLI；已有 project-map 数据时自动验证。
+一键安装设备级 GSD、project-map Codex Skill 和 project-map CLI。提供真实的
+--project 路径时，还会验证已有项目数据，或配合初始化参数创建数据。
 
 选项：
-  --project PATH          安装 CLI 的目标项目
+  --project PATH          安装后验证或初始化此项目（可选）
   --init-title TITLE      用此项目名称初始化新的 project-map 数据
   --init-text TEXT        与 --init-title 一起使用的原始需求
   --gsd-version VERSION   GSD 版本（默认：1.11.0）
   --gsd-profile PROFILE   GSD profile：core、standard 或 full（默认：core）
   --skip-gsd              不安装或验证 GSD
-  --skip-cli              不向目标项目安装 CLI
+  --skip-cli              不安装设备级 project-map CLI
   --force-skill           备份并替换内容不同的既有 project-map Skill
   --allow-dirty           允许从包含未提交改动的源码克隆安装
   -h, --help              显示帮助
@@ -121,10 +121,6 @@ if [ "$SKIP_CLI" -eq 1 ] && { [ -n "$PROJECT_DIR" ] || [ -n "$INIT_TITLE" ]; }; 
   die "--skip-cli 不能与 --project 或项目数据初始化参数同时使用"
 fi
 
-if [ -z "$PROJECT_DIR" ]; then
-  SKIP_CLI=1
-fi
-
 if [ "$SKIP_GSD" -eq 0 ]; then
   case "$GSD_PROFILE" in
     core|standard|full) ;;
@@ -134,20 +130,19 @@ fi
 
 # Validate every user-controlled target before installing GSD or copying Skills.
 # This prevents an invalid project path from leaving a misleading partial install.
-if [ "$SKIP_CLI" -eq 0 ]; then
+if [ -n "$PROJECT_DIR" ]; then
   case "$PROJECT_DIR" in
     /absolute/path/to/target-project|/path/to/target-project)
       SOURCE_PARENT="$(dirname "$SCRIPT_DIR")"
       if [ -f "$SOURCE_PARENT/package.json" ]; then
         die "--project 收到的是文档占位符：${PROJECT_DIR}；按当前目录结构可尝试：./install.sh --project '${SOURCE_PARENT}'"
       fi
-      die "--project 收到的是文档占位符：${PROJECT_DIR}；请替换为包含 package.json 的真实项目目录"
+      die "--project 收到的是文档占位符：${PROJECT_DIR}；请替换为真实存在的项目目录"
       ;;
   esac
   [ -d "$PROJECT_DIR" ] || die "目标项目不存在：$PROJECT_DIR"
   PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd -P)"
   [ "$PROJECT_DIR" != "$SCRIPT_DIR" ] || die "目标项目不能是安装器源码仓库本身"
-  [ -f "$PROJECT_DIR/package.json" ] || die "目标项目缺少 package.json：$PROJECT_DIR"
 fi
 
 for command_name in git node npm npx; do
@@ -181,7 +176,12 @@ if [ "$ALLOW_DIRTY" -eq 0 ] &&
 fi
 
 SOURCE_COMMIT="$(git -C "$SCRIPT_DIR" rev-parse HEAD)"
-SOURCE_REPOSITORY_URL="https://github.com/githuangjunwen/Project-initialization-skill.git"
+SOURCE_LABEL="$SOURCE_COMMIT"
+if [ -n "$(git -C "$SCRIPT_DIR" status --porcelain --untracked-files=normal)" ]; then
+  SOURCE_LABEL="${SOURCE_COMMIT}+working-tree"
+fi
+CLI_PREFIX="${PROJECT_MAP_CLI_PREFIX:-$HOME/.local}"
+CLI_BIN="$CLI_PREFIX/bin/project-map"
 
 if [ "$SKIP_GSD" -eq 0 ]; then
   log "正在安装 GSD ${GSD_VERSION}（profile：${GSD_PROFILE}）"
@@ -204,6 +204,11 @@ if [ -e "$SKILL_TARGET" ] || [ -L "$SKILL_TARGET" ]; then
   fi
 fi
 
+log "安装完成"
+if [ "$SKIP_CLI" -eq 0 ]; then
+  log "下一步：重启 Codex，在新项目目录输入：\$project-map 初始化新项目"
+fi
+
 if [ ! -e "$SKILL_TARGET" ] && [ ! -L "$SKILL_TARGET" ]; then
   INSTALL_STAGE="$(mktemp -d "$SKILLS_ROOT/.project-map-install.XXXXXX")"
   trap 'rm -rf "$INSTALL_STAGE"' EXIT
@@ -216,6 +221,23 @@ if [ ! -e "$SKILL_TARGET" ] && [ ! -L "$SKILL_TARGET" ]; then
 fi
 
 [ -f "$SKILL_TARGET/SKILL.md" ] || die "Skill 验证失败：$SKILL_TARGET/SKILL.md"
+
+if [ "$SKIP_CLI" -eq 0 ]; then
+  CLI_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/project-map-cli-install.XXXXXX")"
+  trap 'rm -rf "$CLI_STAGE"' EXIT
+  CLI_TARBALL_NAME="$(npm pack "$SCRIPT_DIR" --pack-destination "$CLI_STAGE" --silent)"
+  CLI_TARBALL="$CLI_STAGE/$CLI_TARBALL_NAME"
+  [ -f "$CLI_TARBALL" ] || die "CLI 打包失败：$CLI_TARBALL"
+  log "正在安装设备级 project-map CLI（来源：${SOURCE_LABEL}）"
+  npm install --global --prefix "$CLI_PREFIX" "$CLI_TARBALL"
+  rm -rf "$CLI_STAGE"
+  trap - EXIT
+  [ -x "$CLI_BIN" ] || die "CLI 验证失败：$CLI_BIN"
+  case ":$PATH:" in
+    *":$CLI_PREFIX/bin:"*) ;;
+    *) warn "$CLI_PREFIX/bin 不在 PATH 中；Skill 会直接使用 ${CLI_BIN}，命令行用户可将该目录加入 PATH" ;;
+  esac
+fi
 
 if [ "$SKIP_GSD" -eq 0 ]; then
   GSD_HOME="${CODEX_HOME:-$HOME/.codex}"
@@ -235,25 +257,22 @@ if [ "$SKIP_GSD" -eq 0 ]; then
   esac
 fi
 
-if [ "$SKIP_CLI" -eq 0 ]; then
-  CLI_SPEC="git+$SOURCE_REPOSITORY_URL#$SOURCE_COMMIT"
-
-  log "正在向 $PROJECT_DIR 安装 commit $SOURCE_COMMIT 对应的 project-map CLI"
-  npm --prefix "$PROJECT_DIR" install --save-dev "$CLI_SPEC"
-  [ -x "$PROJECT_DIR/node_modules/.bin/project-map" ] ||
-    die "CLI 验证失败：$PROJECT_DIR/node_modules/.bin/project-map"
-
+if [ -n "$PROJECT_DIR" ]; then
+  [ -x "$CLI_BIN" ] || die "使用 --project 时需要设备级 CLI；请移除 --skip-cli"
   if [ -f "$PROJECT_DIR/.planning/project-map/index.json" ]; then
     log "正在验证既有 project-map 数据"
-    npm --prefix "$PROJECT_DIR" exec -- project-map check --json
+    (cd "$PROJECT_DIR" && "$CLI_BIN" check --json)
   elif [ -n "$INIT_TITLE" ]; then
     log "正在初始化 project-map 数据"
-    npm --prefix "$PROJECT_DIR" exec -- project-map init \
+    (cd "$PROJECT_DIR" && "$CLI_BIN" init \
       --project-title "$INIT_TITLE" \
-      --text "$INIT_TEXT"
-    npm --prefix "$PROJECT_DIR" exec -- project-map check --json
+      --text "$INIT_TEXT")
+    (cd "$PROJECT_DIR" && "$CLI_BIN" add project \
+      --title "$INIT_TITLE" \
+      --source SRC-001)
+    (cd "$PROJECT_DIR" && "$CLI_BIN" check --json)
   else
-    warn "CLI 已安装，但项目数据尚未初始化；准备好原始需求后，请使用 --init-title 与 --init-text 重跑"
+    warn "设备组件已安装，但此项目尚未初始化；在项目中启动 Codex 并输入：\$project-map 初始化新项目"
   fi
 fi
 

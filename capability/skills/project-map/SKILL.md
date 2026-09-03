@@ -1,6 +1,6 @@
 ---
 name: project-map
-description: 当仓库包含 .planning/project-map，且用户要求开始或恢复“推进 E-002”“完善 F-006”等节点、查看项目状态、记录需求变更或业务决策、准备实施，或将需求重新关联到 GSD 计划、代码和测试时使用。
+description: 初始化带 GSD 与 Project Map 的新项目，或在已有 .planning/project-map 的项目中推进节点、查看状态、记录需求与决策、准备实施及维护代码测试追踪时使用。
 ---
 
 # 项目地图
@@ -15,6 +15,7 @@ description: 当仓库包含 .planning/project-map，且用户要求开始或恢
 
 | 用户意图 | 首个动作 |
 | --- | --- |
+| 初始化新项目 | 确认真实项目名称和原始想法，执行“新项目初始化” |
 | `推进 <ID>` / `完善 <ID>` | 运行 `project-map focus <ID> --json` |
 | 查看状态 | 运行 `project-map status [ID] --json` |
 | 记录新的需求来源 | 运行 `project-map capture ... --json` |
@@ -23,9 +24,22 @@ description: 当仓库包含 .planning/project-map，且用户要求开始或恢
 | 需求已变更 | 运行 `project-map impact <ID> --json` |
 | 交接给 GSD | 阅读 [GSD 交接](references/gsd-handoff.md) |
 
-## 工作流
+## CLI 解析
 
-1. 定位仓库根目录，确认 `.planning/project-map/index.json` 存在，并确认项目本地的 `project-map` 可执行程序可用。若缺少该程序，停止并指向项目本地安装方式；不得直接编辑存储文件。
+优先使用 `command -v project-map`。若未找到但 `$HOME/.local/bin/project-map` 可执行，则使用该绝对路径。两者都不存在时停止，并提示用户从本项目源码仓库运行 `./install.sh`；不得要求每个项目重复安装 npm 依赖。
+
+## 新项目初始化
+
+当用户要求初始化新项目时：
+
+1. 确认当前目录就是目标项目目录。获取用户确认的项目名称和未经改写的原始想法；缺少时提问，不得代填。
+2. 若 `.planning/project-map/index.json` 不存在，立即运行 `project-map init --project-title <名称> --text <原始想法>` 保存不可变来源，再运行 `project-map add project --title <名称> --source SRC-001` 创建根节点；若已存在则不得覆盖，继续下一步。
+3. 若 `.planning/PROJECT.md` 不存在，继续调用已安装的 `$gsd-new-project`，将同一原始想法作为输入并完整保留其提问、研究、路线图、`AGENTS.md` 和提交门槛。不得改走 `gsd-new-milestone`。
+4. GSD 初始化完成后运行 `project-map check --json`，报告下一步；不得再次安装 CLI 或 Skill。
+
+## 已有项目工作流
+
+1. 定位仓库根目录，确认 `.planning/project-map/index.json` 存在，并按“CLI 解析”确认设备级程序可用。
 2. 对恢复或完善意图，运行 `project-map focus <ID> --json`。
 3. 阅读 `CURRENT.md`，且只读取其 `must_read` 集合中的路径和 ID。将 `may_need` 视为可选项，默认不加载被排除的分支。
 4. 如缺少细节，使用 `references/discovery.md`；通过 CLI 命令写入事实、提议、验收标准和决策。绝不把 AI 提议变成已确认的业务规则。
