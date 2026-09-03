@@ -10,6 +10,7 @@
     "project-map": "bin/project-map.mjs"
   },
   "files": [
+    "install.sh",
     "bin",
     "src",
     "capability",

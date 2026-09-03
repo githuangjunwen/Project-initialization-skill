@@ -1,5 +1,7 @@
 # Project Map 能力包 MVP 实施计划
 
+> **历史实施计划，不是安装或运行手册。** 当前安装入口见项目根目录 `README.md`，完整安装、更新和排障说明见 `docs/安装部署与更新.md`。本文保留的命令代表当时计划或验证尝试，可能已经失效，不得直接复制到当前环境执行。
+
 > **供智能体执行者使用：** 必须使用子技能：推荐使用 `superpowers:subagent-driven-development`，或使用 `superpowers:executing-plans`，按任务逐项执行本计划。使用复选框（`- [ ]`）跟踪步骤。
 
 **目标：** 构建项目本地 Project Map CLI 和一个 GSD/Codex Skill，以保留原始意图、管理 `P→E→F→S→T` 树、执行已确认的业务决策、生成聚焦的恢复上下文，并维护追踪与影响元数据，同时不重复 GSD 计划产物。
@@ -750,7 +752,9 @@ Blocked on 2026-08-20 by the environment npm certificate chain (`UNABLE_TO_GET_I
 
 Run after the user authorizes dependency installation:
 
-```bash
+> 历史记录：下面是 2026-08-20 当时拟验证但未完成的命令，当前 GSD 1.11.0 不应照抄执行。现行命令见 [`docs/安装部署与更新.md`](../../安装部署与更新.md#gsd-capability-安装)。
+
+```text
 gsd capability install ./capability --scope project
 gsd capability list
 ```

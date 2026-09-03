@@ -29,17 +29,32 @@ P-001     E-001   F-001    S-001   T-001
 
 > 绝不手工编辑生成的 Markdown 或就绪标记，也不要手工编辑规范 JSON；请使用 CLI，确保哈希、索引、影响状态与派生产物保持同步。
 
-## 项目本地安装
+## 快速安装（新设备）
 
-要求：Node.js 18 或更高版本，以及 Git。
+要求：已安装 Git、Node.js 18+ 与 Codex CLI 或 Codex Desktop。
 
-> 完整的 Codex Skill 安装、CLI 部署、多设备同步、更新、回滚与验证说明见[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)。下面的绝对路径方式仅适合单机开发，多端部署应使用 Git 标签或私有 npm 版本。
+> 完整可用并不是“安装一个 Skill”：GSD、`project-map` Skill、项目本地 CLI 和 `.planning/project-map` 数据是四个独立层次。完整的多设备、更新与回滚说明见[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)。
 
-在目标项目中，将本仓库安装为项目本地开发依赖：
+从 GitHub 克隆后，推荐直接运行一键安装脚本：
 
 ```bash
-npm install --save-dev /absolute/path/to/Project-initialization-skill
+git clone https://github.com/githuangjunwen/Project-initialization-skill.git
+cd Project-initialization-skill
+./install.sh --project /absolute/path/to/target-project
 ```
+
+如果目标项目还没有 `.planning/project-map`，并且你已经准备好真实的项目名称与原始需求，可以在同一次安装中初始化：
+
+```bash
+./install.sh \
+  --project /absolute/path/to/target-project \
+  --init-title "项目名称" \
+  --init-text "项目的原始想法"
+```
+
+脚本会安装并验收所请求的组件，把项目 CLI 锁定到当前克隆的 Git commit；已有不同内容的 Skill 默认不会被覆盖。所有选项、等价手工步骤、Windows 安装、更新、回滚和故障排查只在[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)维护，避免两份命令长期漂移。
+
+## 初始化与使用
 
 使用未修改的初始想法进行初始化：
 
@@ -186,18 +201,11 @@ npx project-map check --json
 
 `rebuild` 只会重新生成 `CURRENT.md`、`PROJECT-MAP.md`、生成哈希和仍然有效的当前就绪标记。
 
-## Capability 安装状态
+## Capability 边界
 
 该 Capability 只暴露一个项目本地 Skill：`project-map`。需求探索、就绪检查和 GSD 交接细节分别位于按需读取的参考资料中。其清单面向 GSD `>=1.6.0 <2.0.0` 与 Codex。
 
-预期的项目级安装方式：
-
-```bash
-gsd capability install /absolute/path/to/capability --scope project
-gsd capability list --json
-```
-
-清单与 Skill 已通过仓库验证。曾在 2026-08-20 尝试进行一次性 GSD 实际安装，但环境的 npm TLS 证书链报错 `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`；在将运行时安装视为已验证前，请在证书链正常的环境中重新执行上面两条命令。
+高级项目级 Capability 集成不替代 GSD runtime、项目 CLI 或数据初始化。具体命令只在[安装指南的 GSD Capability 章节](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md#gsd-capability-%E5%AE%89%E8%A3%85)维护。
 
 ## 有意延期的内容
 
