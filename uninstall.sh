@@ -171,11 +171,20 @@ if [ "$KEEP_GSD" -eq 0 ]; then
   else
     log "GSD runtime 未安装，无需卸载"
   fi
+  GSD_HIDDEN_SKILLS="$GSD_HOME/project-map-hidden-gsd-skills"
+  if [ -e "$GSD_HIDDEN_SKILLS" ] || [ -L "$GSD_HIDDEN_SKILLS" ]; then
+    if [ -f "$GSD_HIDDEN_SKILLS/.project-map-managed" ]; then
+      rm -rf "$GSD_HIDDEN_SKILLS"
+      log "已移除 Project Map 管理的 GSD 隐藏 Skill 副本"
+    else
+      warn "已保留非本卸载器管理的目录：$GSD_HIDDEN_SKILLS"
+    fi
+  fi
 else
   log "已按 --keep-gsd 保留 GSD"
 fi
 
-if [ "$RESET_SURFACE" -eq 1 ]; then
+if [ "$RESET_SURFACE" -eq 1 ] || [ "$KEEP_GSD" -eq 0 ]; then
   SURFACE_FILE="$GSD_HOME/.gsd-surface.json"
   if [ -e "$SURFACE_FILE" ] || [ -L "$SURFACE_FILE" ]; then
     backup_move "$SURFACE_FILE" "gsd-surface.json"

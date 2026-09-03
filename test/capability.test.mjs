@@ -25,6 +25,9 @@ test('发布包包含中文安装、多端更新与回滚说明', async () => {
   assert.match(guide, /回滚流程/);
   assert.match(guide, /\.agents\/skills\/project-map/);
   assert.match(guide, /GSD 1\.11\.0 需要 Node\.js 24/);
+  assert.match(guide, /默认.*full/);
+  assert.match(guide, /~\/\.codex\/agents\/gsd-\*\.toml/);
+  assert.match(guide, /project-map-hidden-gsd-skills/);
   assert.match(guide, /~\/\.local\/bin\/project-map/);
   assert.match(guide, /\$project-map 初始化新项目/);
   assert.match(guide, /\.\/install\.sh --project/);
@@ -62,6 +65,7 @@ test('一键卸载脚本移除运行组件并为数据与 surface 创建可恢�
   await mkdir(skill, { recursive: true });
   await mkdir(gsdSkill, { recursive: true });
   await mkdir(gsdCore, { recursive: true });
+  await mkdir(join(home, '.codex/project-map-hidden-gsd-skills/gsd-debug'), { recursive: true });
   await mkdir(projectData, { recursive: true });
   await mkdir(join(home, '.local/bin'), { recursive: true });
   await mkdir(join(home, '.local/lib/node_modules/project-map-capability'), { recursive: true });
@@ -69,6 +73,8 @@ test('一键卸载脚本移除运行组件并为数据与 surface 创建可恢�
   await writeFile(join(skill, 'SKILL.md'), 'project-map\n');
   await writeFile(join(gsdSkill, 'SKILL.md'), 'gsd\n');
   await writeFile(join(gsdCore, 'VERSION'), '1.11.0\n');
+  await writeFile(join(home, '.codex/project-map-hidden-gsd-skills/gsd-debug/SKILL.md'), 'debug\n');
+  await writeFile(join(home, '.codex/project-map-hidden-gsd-skills/.project-map-managed'), 'managed\n');
   await writeFile(join(home, '.codex/.gsd-surface.json'), '{"baseProfile":"full"}\n');
   await writeFile(join(projectData, 'index.json'), '{}\n');
   await writeFile(join(home, '.local/bin/project-map'), '#!/bin/sh\nexit 0\n');
@@ -112,6 +118,7 @@ esac
 
   await assert.rejects(readFile(join(skill, 'SKILL.md'), 'utf8'));
   await assert.rejects(readFile(join(gsdCore, 'VERSION'), 'utf8'));
+  await assert.rejects(readFile(join(home, '.codex/project-map-hidden-gsd-skills/gsd-debug/SKILL.md'), 'utf8'));
   await assert.rejects(readFile(join(home, '.codex/.gsd-surface.json'), 'utf8'));
   await assert.rejects(readFile(join(projectData, 'index.json'), 'utf8'));
   await assert.rejects(readFile(join(home, '.local/bin/project-map'), 'utf8'));
@@ -176,22 +183,30 @@ exec "${process.execPath}" "$@"
   await writeFile(fakeNpx, `#!/bin/sh
 set -eu
 mkdir -p "$HOME/.codex/gsd-core"
-mkdir -p "$HOME/.agents/skills/gsd-new-project"
-mkdir -p "$HOME/.agents/skills/gsd-surface"
+for skill_name in new-project discuss-phase plan-phase execute-phase phase help update surface debug audit-fix ui-phase; do
+  mkdir -p "$HOME/.agents/skills/gsd-$skill_name"
+  : > "$HOME/.agents/skills/gsd-$skill_name/SKILL.md"
+done
 printf '1.11.0\\n' > "$HOME/.codex/gsd-core/VERSION"
-: > "$HOME/.agents/skills/gsd-new-project/SKILL.md"
-: > "$HOME/.agents/skills/gsd-surface/SKILL.md"
+printf 'full\\n' > "$HOME/.codex/.gsd-profile"
 case "$*" in
   *--profile=full*)
-    mkdir -p "$HOME/.agents/skills/gsd-debug"
-    : > "$HOME/.agents/skills/gsd-debug/SKILL.md"
+    mkdir -p "$HOME/.codex/agents"
+    for agent_name in gsd-phase-researcher gsd-planner gsd-plan-checker gsd-executor; do
+      : > "$HOME/.codex/agents/$agent_name.toml"
+    done
+    agent_index=1
+    while [ "$agent_index" -le 30 ]; do
+      : > "$HOME/.codex/agents/gsd-test-agent-$agent_index.toml"
+      agent_index=$((agent_index + 1))
+    done
     ;;
 esac
 printf '%s\\n' "$*" > "$HOME/gsd-install-args.txt"
 `);
   await chmod(fakeNpx, 0o755);
 
-const fakeNpm = join(fakeBin, 'npm');
+  const fakeNpm = join(fakeBin, 'npm');
   await writeFile(fakeNpm, `#!/bin/sh
 set -eu
 if [ "$1" = "pack" ] && [ "$3" = "--pack-destination" ]; then
@@ -239,7 +254,21 @@ chmod +x "$cli_prefix/bin/project-map"
     '1.11.0'
   );
   await readFile(join(home, '.agents/skills/gsd-surface/SKILL.md'), 'utf8');
-  assert.match(await readFile(join(home, 'gsd-install-args.txt'), 'utf8'), /--profile=core/);
+  assert.match(await readFile(join(home, 'gsd-install-args.txt'), 'utf8'), /--profile=full/);
+  await readFile(join(home, '.codex/agents/gsd-phase-researcher.toml'), 'utf8');
+  await readFile(join(home, '.codex/agents/gsd-planner.toml'), 'utf8');
+  await readFile(join(home, '.codex/agents/gsd-plan-checker.toml'), 'utf8');
+  await readFile(join(home, '.codex/agents/gsd-executor.toml'), 'utf8');
+  await readFile(join(home, '.codex/project-map-hidden-gsd-skills/gsd-debug/SKILL.md'), 'utf8');
+  assert.equal((await readFile(join(home, '.codex/.gsd-profile'), 'utf8')).trim(), 'full');
+  assert.equal(
+    JSON.parse(await readFile(join(home, '.codex/.gsd-surface.json'), 'utf8')).baseProfile,
+    'core'
+  );
+  await assert.rejects(readFile(join(home, '.agents/skills/gsd-debug/SKILL.md'), 'utf8'));
+  const visibleGsdSkills = (await readdir(join(home, '.agents/skills')))
+    .filter((name) => name.startsWith('gsd-'));
+  assert.equal(visibleGsdSkills.length, 8);
   await readFile(join(home, '.local/bin/project-map'), 'utf8');
 
   const deviceOnlyResult = spawnSync('bash', [
@@ -261,10 +290,10 @@ chmod +x "$cli_prefix/bin/project-map"
   await readFile(join(newProject, '.planning/project-map/index.json'), 'utf8');
   assert.match(await readFile(join(home, 'cli-invocations.txt'), 'utf8'), /add project --title 新项目 --source SRC-001/);
 
-  const fullResult = spawnSync('bash', [
-    'install.sh', '--project', project, '--allow-dirty', '--gsd-profile', 'full'
+  const fullSurfaceResult = spawnSync('bash', [
+    'install.sh', '--project', project, '--allow-dirty', '--gsd-surface', 'full'
   ], { cwd: process.cwd(), env, encoding: 'utf8' });
-  assert.equal(fullResult.status, 0, `${fullResult.stdout}\n${fullResult.stderr}`);
+  assert.equal(fullSurfaceResult.status, 0, `${fullSurfaceResult.stdout}\n${fullSurfaceResult.stderr}`);
   await readFile(join(home, '.agents/skills/gsd-debug/SKILL.md'), 'utf8');
   assert.match(await readFile(join(home, 'gsd-install-args.txt'), 'utf8'), /--profile=full/);
 });
@@ -318,6 +347,22 @@ fi
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /GSD 1\.11\.0 要求 Node\.js 24/);
+  assert.equal(spawnSync('test', ['-e', join(home, '.agents')]).status, 1);
+});
+
+test('安装器拒绝会删减子 Agent 的非 full GSD profile', async () => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'project-map-profile-preflight-'));
+  const home = join(sandbox, 'home');
+  await mkdir(home, { recursive: true });
+
+  const env = { ...process.env, HOME: home };
+  delete env.CODEX_HOME;
+  const result = spawnSync('bash', [
+    'install.sh', '--gsd-profile', 'core', '--allow-dirty'
+  ], { cwd: process.cwd(), env, encoding: 'utf8' });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /GSD full profile/);
   assert.equal(spawnSync('test', ['-e', join(home, '.agents')]).status, 1);
 });
 

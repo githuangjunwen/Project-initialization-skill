@@ -68,7 +68,7 @@ Skill 会保存未经改写的原始想法，并在项目尚未建立 GSD 文件
   --init-text "项目的原始想法"
 ```
 
-脚本默认使用 GSD `core` profile，只显示 8 个核心 GSD Skills 和 `project-map`；项目需要 `$gsd-debug`、安全审计、UI 或其他扩展能力时，传入 `--gsd-profile full`。脚本会验收所请求的组件，并从当前克隆安装同源的设备 CLI；已有不同内容的 Skill 默认不会被覆盖。所有选项、Windows 安装、更新、回滚和故障排查只在[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)维护，避免两份命令长期漂移。
+脚本默认完整安装 GSD `full` profile 和全部 Agent、Hooks、工作流，再把 ChatGPT Desktop/Codex 的 Skill 展示收敛为 8 个核心 GSD Skills；隐藏项会保存在设备级副本中，不会损失完整安装能力。需要临时显示全部 Skills 时传入 `--gsd-surface full`。脚本会分别验收完整能力层和精简展示层，并从当前克隆安装同源的设备 CLI；已有不同内容的 Skill 默认不会被覆盖。所有选项、Windows 安装、更新、回滚和故障排查只在[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)维护，避免两份命令长期漂移。
 
 快速卸载设备级组件：
 
@@ -82,7 +82,7 @@ Skill 会保存未经改写的原始想法，并在项目尚未建立 GSD 文件
 ./uninstall.sh --project /opt/ceshi/ds-wechat-api-ubuntu
 ```
 
-项目数据默认保留；完整重测可追加 `--reset-data --reset-surface`，数据与设置会先备份而不是直接删除。
+项目数据默认保留，GSD surface 状态会在默认卸载时自动备份并清除；如要同时重测项目数据，传入真实的 `--project` 并追加 `--reset-data`。
 
 ## 初始化与使用
 

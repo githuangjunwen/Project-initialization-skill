@@ -3,7 +3,8 @@
 set -euo pipefail
 
 GSD_VERSION="1.11.0"
-GSD_PROFILE="core"
+GSD_PROFILE="full"
+GSD_SURFACE="core"
 PROJECT_DIR=""
 INIT_TITLE=""
 INIT_TEXT=""
@@ -40,7 +41,8 @@ usage() {
   --init-title TITLE      用此项目名称初始化新的 project-map 数据
   --init-text TEXT        与 --init-title 一起使用的原始需求
   --gsd-version VERSION   GSD 版本（默认：1.11.0）
-  --gsd-profile PROFILE   GSD profile：core、standard 或 full（默认：core）
+  --gsd-profile PROFILE   GSD 安装完整度；本安装器要求 full（默认：full）
+  --gsd-surface PROFILE   Desktop Skill 展示：core 或 full（默认：core）
   --skip-gsd              不安装或验证 GSD
   --skip-cli              不安装设备级 project-map CLI
   --force-skill           备份并替换内容不同的既有 project-map Skill
@@ -80,6 +82,11 @@ while [ "$#" -gt 0 ]; do
     --gsd-profile)
       [ "$#" -ge 2 ] || die "--gsd-profile 缺少值"
       GSD_PROFILE="$2"
+      shift 2
+      ;;
+    --gsd-surface)
+      [ "$#" -ge 2 ] || die "--gsd-surface 缺少值"
+      GSD_SURFACE="$2"
       shift 2
       ;;
     --skip-gsd)
@@ -123,8 +130,15 @@ fi
 
 if [ "$SKIP_GSD" -eq 0 ]; then
   case "$GSD_PROFILE" in
-    core|standard|full) ;;
-    *) die "不支持的 GSD profile：${GSD_PROFILE}；可选值为 core、standard、full" ;;
+    full) ;;
+    core|standard)
+      die "本安装器要求 GSD full profile，以保证子 Agent、Hooks 和工作流完整；界面精简请使用 --gsd-surface core"
+      ;;
+    *) die "不支持的 GSD profile：${GSD_PROFILE}；本安装器仅支持 full" ;;
+  esac
+  case "$GSD_SURFACE" in
+    core|full) ;;
+    *) die "不支持的 GSD surface：${GSD_SURFACE}；可选值为 core、full" ;;
   esac
 fi
 
@@ -184,7 +198,7 @@ CLI_PREFIX="${PROJECT_MAP_CLI_PREFIX:-$HOME/.local}"
 CLI_BIN="$CLI_PREFIX/bin/project-map"
 
 if [ "$SKIP_GSD" -eq 0 ]; then
-  log "正在安装 GSD ${GSD_VERSION}（profile：${GSD_PROFILE}）"
+  log "正在完整安装 GSD ${GSD_VERSION}（profile：${GSD_PROFILE}，Skill 展示：${GSD_SURFACE}）"
   npx -y "@opengsd/gsd-core@$GSD_VERSION" --codex --global "--profile=$GSD_PROFILE"
 fi
 
@@ -202,11 +216,6 @@ if [ -e "$SKILL_TARGET" ] || [ -L "$SKILL_TARGET" ]; then
   else
     die "$SKILL_TARGET 已存在且内容不同；请先检查，或使用 --force-skill 备份后替换"
   fi
-fi
-
-log "安装完成"
-if [ "$SKIP_CLI" -eq 0 ]; then
-  log "下一步：重启 Codex，在新项目目录输入：\$project-map 初始化新项目"
 fi
 
 if [ ! -e "$SKILL_TARGET" ] && [ ! -L "$SKILL_TARGET" ]; then
@@ -249,12 +258,77 @@ if [ "$SKIP_GSD" -eq 0 ]; then
     die "GSD Skill 验证失败：缺少 gsd-new-project"
   [ -f "$SKILLS_ROOT/gsd-surface/SKILL.md" ] ||
     die "GSD Skill 验证失败：缺少 gsd-surface"
+  for agent_name in gsd-phase-researcher gsd-planner gsd-plan-checker gsd-executor; do
+    [ -f "$GSD_HOME/agents/$agent_name.toml" ] ||
+      die "GSD 子 Agent 验证失败：缺少 $GSD_HOME/agents/$agent_name.toml"
+  done
   case ",${GSD_PROFILE}," in
     *,full,*)
       [ -f "$SKILLS_ROOT/gsd-debug/SKILL.md" ] ||
         die "GSD full profile 验证失败：缺少 gsd-debug"
       ;;
   esac
+
+  if [ "$GSD_PROFILE" = "full" ]; then
+    AGENT_COUNT="$(find "$GSD_HOME/agents" -maxdepth 1 -name 'gsd-*.toml' -type f | wc -l | tr -d '[:space:]')"
+    [ "$AGENT_COUNT" -ge 34 ] || die "GSD full 安装不完整：仅发现 ${AGENT_COUNT} 个 Agent TOML，预期至少 34 个"
+  fi
+
+  GSD_HIDDEN_SKILLS="$GSD_HOME/project-map-hidden-gsd-skills"
+  GSD_HIDDEN_MARKER="$GSD_HIDDEN_SKILLS/.project-map-managed"
+  if [ "$GSD_SURFACE" = "core" ]; then
+    SURFACE_STAGE="$(mktemp -d "$GSD_HOME/.project-map-surface.XXXXXX")"
+    trap 'rm -rf "$SURFACE_STAGE"' EXIT
+    mkdir -p "$SURFACE_STAGE/full"
+    FULL_SKILL_COUNT=0
+    for gsd_skill_dir in "$SKILLS_ROOT"/gsd-*; do
+      [ -d "$gsd_skill_dir" ] || continue
+      cp -R "$gsd_skill_dir" "$SURFACE_STAGE/full/"
+      FULL_SKILL_COUNT=$((FULL_SKILL_COUNT + 1))
+    done
+    [ "$FULL_SKILL_COUNT" -gt 8 ] || die "GSD full Skill 验证失败：仅发现 ${FULL_SKILL_COUNT} 个 Skills"
+
+    if [ -e "$GSD_HIDDEN_SKILLS" ] || [ -L "$GSD_HIDDEN_SKILLS" ]; then
+      [ -f "$GSD_HIDDEN_MARKER" ] ||
+        die "拒绝覆盖非本安装器管理的目录：$GSD_HIDDEN_SKILLS"
+      OLD_HIDDEN_SKILLS="${GSD_HIDDEN_SKILLS}.old.$$"
+      mv "$GSD_HIDDEN_SKILLS" "$OLD_HIDDEN_SKILLS"
+    else
+      OLD_HIDDEN_SKILLS=""
+    fi
+    mv "$SURFACE_STAGE/full" "$GSD_HIDDEN_SKILLS"
+    printf 'managed-by=project-map-install.sh\n' > "$GSD_HIDDEN_MARKER"
+    rmdir "$SURFACE_STAGE"
+    trap - EXIT
+    if [ -n "$OLD_HIDDEN_SKILLS" ]; then
+      rm -rf "$OLD_HIDDEN_SKILLS"
+    fi
+
+    for gsd_skill_dir in "$SKILLS_ROOT"/gsd-*; do
+      [ -d "$gsd_skill_dir" ] || continue
+      case "$(basename "$gsd_skill_dir")" in
+        gsd-new-project|gsd-discuss-phase|gsd-plan-phase|gsd-execute-phase|gsd-phase|gsd-help|gsd-update|gsd-surface) ;;
+        *) rm -rf "$gsd_skill_dir" ;;
+      esac
+    done
+    printf '{\n  "baseProfile": "core",\n  "disabledClusters": [],\n  "explicitAdds": [],\n  "explicitRemoves": []\n}\n' > "$GSD_HOME/.gsd-surface.json"
+  else
+    if [ -e "$GSD_HIDDEN_SKILLS" ] || [ -L "$GSD_HIDDEN_SKILLS" ]; then
+      if [ -f "$GSD_HIDDEN_MARKER" ]; then
+        rm -rf "$GSD_HIDDEN_SKILLS"
+      else
+        warn "已保留非本安装器管理的目录：$GSD_HIDDEN_SKILLS"
+      fi
+    fi
+    printf '{\n  "baseProfile": "full",\n  "disabledClusters": [],\n  "explicitAdds": [],\n  "explicitRemoves": []\n}\n' > "$GSD_HOME/.gsd-surface.json"
+  fi
+
+  ACTIVE_SKILL_COUNT="$(find "$SKILLS_ROOT" -mindepth 2 -maxdepth 2 -path '*/gsd-*/SKILL.md' -type f | wc -l | tr -d '[:space:]')"
+  if [ "$GSD_SURFACE" = "core" ]; then
+    [ "$ACTIVE_SKILL_COUNT" -eq 8 ] || die "GSD core 展示验证失败：发现 ${ACTIVE_SKILL_COUNT} 个可见 GSD Skills，预期 8 个"
+    [ -f "$GSD_HIDDEN_SKILLS/gsd-debug/SKILL.md" ] || die "GSD 隐藏 Skill 存储验证失败：缺少 gsd-debug"
+  fi
+  log "GSD 验收完成：${AGENT_COUNT:-核心} 个 Agent TOML，${ACTIVE_SKILL_COUNT} 个可见 GSD Skills"
 fi
 
 if [ -n "$PROJECT_DIR" ]; then
@@ -274,6 +348,11 @@ if [ -n "$PROJECT_DIR" ]; then
   else
     warn "设备组件已安装，但此项目尚未初始化；在项目中启动 Codex 并输入：\$project-map 初始化新项目"
   fi
+fi
+
+log "安装完成"
+if [ "$SKIP_CLI" -eq 0 ]; then
+  log "下一步：重启 Codex，在新项目目录输入：\$project-map 初始化新项目"
 fi
 
 log "已完成所请求组件的安装与验收"
