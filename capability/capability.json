@@ -1,7 +1,7 @@
 {
   "id": "project-map",
   "role": "feature",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "title": "Project Map",
   "description": "Adds recursive requirements, focused resume context, decision gates, and trace links around the GSD phase loop.",
   "tier": "standard",
@@ -11,11 +11,13 @@
   },
   "runtimeCompat": {
     "supported": [
-      "codex"
+      "codex",
+      "claude-code"
     ],
     "unsupported": [],
     "notes": {
-      "codex": "MVP is verified only against the Codex runtime projection."
+      "codex": "Installed as a user skill with the Codex GSD runtime projection.",
+      "claude-code": "Installed as a personal skill with the Claude Code GSD runtime projection."
     }
   },
   "skills": [

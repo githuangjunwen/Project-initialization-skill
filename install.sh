@@ -5,6 +5,7 @@ set -euo pipefail
 GSD_VERSION="1.11.0"
 GSD_PROFILE="full"
 GSD_SURFACE="core"
+RUNTIME=""
 PROJECT_DIR=""
 INIT_TITLE=""
 INIT_TEXT=""
@@ -30,10 +31,11 @@ die() {
 usage() {
   cat <<'EOF'
 用法：
-  ./install.sh [options]
-  ./install.sh --project /真实/项目路径 [options]
+  ./install.sh --runtime claude|codex [options]
+  ./install.sh --runtime claude|codex --project /真实/项目路径 [options]
 
-一键安装设备级 GSD、project-map Codex Skill 和 project-map CLI。提供真实的
+一键为指定运行时安装设备级 GSD、project-map Skill 和共享 CLI。必须显式指定
+--runtime claude 或 --runtime codex。提供真实的
 --project 路径时，还会验证已有项目数据，或配合初始化参数创建数据。
 
 选项：
@@ -43,6 +45,7 @@ usage() {
   --gsd-version VERSION   GSD 版本（默认：1.11.0）
   --gsd-profile PROFILE   GSD 安装完整度；本安装器要求 full（默认：full）
   --gsd-surface PROFILE   Desktop Skill 展示：core 或 full（默认：core）
+  --runtime RUNTIME       必填：claude 或 codex
   --skip-gsd              不安装或验证 GSD
   --skip-cli              不安装设备级 project-map CLI
   --force-skill           备份并替换内容不同的既有 project-map Skill
@@ -50,9 +53,10 @@ usage() {
   -h, --help              显示帮助
 
 示例：
-  ./install.sh
-  ./install.sh --project /opt/ceshi/ds-wechat-api-ubuntu
-  ./install.sh --project /opt/ceshi/ds-wechat-api-ubuntu \
+  ./install.sh --runtime claude
+  ./install.sh --runtime codex
+  ./install.sh --runtime codex --project /opt/ceshi/ds-wechat-api-ubuntu
+  ./install.sh --runtime codex --project /opt/ceshi/ds-wechat-api-ubuntu \
     --init-title "项目名称" --init-text "项目的原始想法"
 EOF
 }
@@ -89,6 +93,11 @@ while [ "$#" -gt 0 ]; do
       GSD_SURFACE="$2"
       shift 2
       ;;
+    --runtime)
+      [ "$#" -ge 2 ] || die "--runtime 缺少值"
+      RUNTIME="$2"
+      shift 2
+      ;;
     --skip-gsd)
       SKIP_GSD=1
       shift
@@ -114,6 +123,12 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+case "$RUNTIME" in
+  claude|codex) ;;
+  '') die "必须显式提供 --runtime claude 或 --runtime codex" ;;
+  *) die "不支持的 runtime：${RUNTIME}；可选值为 claude、codex" ;;
+esac
 
 if { [ -n "$INIT_TITLE" ] && [ -z "$INIT_TEXT" ]; } ||
    { [ -z "$INIT_TITLE" ] && [ -n "$INIT_TEXT" ]; }; then
@@ -149,7 +164,7 @@ if [ -n "$PROJECT_DIR" ]; then
     /absolute/path/to/target-project|/path/to/target-project)
       SOURCE_PARENT="$(dirname "$SCRIPT_DIR")"
       if [ -f "$SOURCE_PARENT/package.json" ]; then
-        die "--project 收到的是文档占位符：${PROJECT_DIR}；按当前目录结构可尝试：./install.sh --project '${SOURCE_PARENT}'"
+        die "--project 收到的是文档占位符：${PROJECT_DIR}；按当前目录结构可尝试：./install.sh --runtime ${RUNTIME} --project '${SOURCE_PARENT}'"
       fi
       die "--project 收到的是文档占位符：${PROJECT_DIR}；请替换为真实存在的项目目录"
       ;;
@@ -163,8 +178,11 @@ for command_name in git node npm npx; do
   command -v "$command_name" >/dev/null 2>&1 || die "缺少必要命令：$command_name"
 done
 
-command -v codex >/dev/null 2>&1 ||
-  warn "PATH 中未找到 codex；如果已经安装 Codex Desktop，可以继续"
+if [ "$RUNTIME" = "codex" ]; then
+  command -v codex >/dev/null 2>&1 || warn "PATH 中未找到 codex；如果已经安装 Codex Desktop，可以继续"
+else
+  command -v claude >/dev/null 2>&1 || warn "PATH 中未找到 claude；VS Code 扩展面板仍可能可用，但建议安装 Claude Code CLI 后验收"
+fi
 
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 case "$NODE_MAJOR" in
@@ -198,38 +216,51 @@ CLI_PREFIX="${PROJECT_MAP_CLI_PREFIX:-$HOME/.local}"
 CLI_BIN="$CLI_PREFIX/bin/project-map"
 
 if [ "$SKIP_GSD" -eq 0 ]; then
-  log "正在完整安装 GSD ${GSD_VERSION}（profile：${GSD_PROFILE}，Skill 展示：${GSD_SURFACE}）"
-  npx -y "@opengsd/gsd-core@$GSD_VERSION" --codex --global "--profile=$GSD_PROFILE"
-fi
-
-SKILLS_ROOT="$HOME/.agents/skills"
-SKILL_TARGET="$SKILLS_ROOT/project-map"
-mkdir -p "$SKILLS_ROOT"
-
-if [ -e "$SKILL_TARGET" ] || [ -L "$SKILL_TARGET" ]; then
-  if diff -qr "$SKILL_SOURCE" "$SKILL_TARGET" >/dev/null 2>&1; then
-    log "project-map Skill 已是当前版本"
-  elif [ "$FORCE_SKILL" -eq 1 ]; then
-    BACKUP_TARGET="$SKILLS_ROOT/project-map.backup.$(date +%Y%m%d%H%M%S).$$"
-    mv "$SKILL_TARGET" "$BACKUP_TARGET"
-    log "旧 Skill 已备份到 $BACKUP_TARGET"
+  if [ "$RUNTIME" = "codex" ]; then
+    log "正在为 Codex 完整安装 GSD ${GSD_VERSION}（profile：${GSD_PROFILE}，Skill 展示：${GSD_SURFACE}）"
+    npx -y "@opengsd/gsd-core@$GSD_VERSION" --codex --global "--profile=$GSD_PROFILE"
   else
-    die "$SKILL_TARGET 已存在且内容不同；请先检查，或使用 --force-skill 备份后替换"
+    log "正在为 Claude Code 安装 GSD ${GSD_VERSION}（profile：${GSD_PROFILE}）"
+    npx -y "@opengsd/gsd-core@$GSD_VERSION" --claude --global "--profile=$GSD_PROFILE"
   fi
 fi
 
-if [ ! -e "$SKILL_TARGET" ] && [ ! -L "$SKILL_TARGET" ]; then
-  INSTALL_STAGE="$(mktemp -d "$SKILLS_ROOT/.project-map-install.XXXXXX")"
-  trap 'rm -rf "$INSTALL_STAGE"' EXIT
-  mkdir -p "$INSTALL_STAGE/project-map"
-  cp -R "$SKILL_SOURCE/." "$INSTALL_STAGE/project-map/"
-  mv "$INSTALL_STAGE/project-map" "$SKILL_TARGET"
-  rmdir "$INSTALL_STAGE"
+install_skill() {
+  local skills_root="$1"
+  local runtime_label="$2"
+  local skill_target="$skills_root/project-map"
+  mkdir -p "$skills_root"
+  if [ -e "$skill_target" ] || [ -L "$skill_target" ]; then
+    if diff -qr "$SKILL_SOURCE" "$skill_target" >/dev/null 2>&1; then
+      [ -f "$skill_target/SKILL.md" ] || die "Skill 验证失败：$skill_target/SKILL.md"
+      log "${runtime_label} project-map Skill 已是当前版本"
+      return
+    elif [ "$FORCE_SKILL" -eq 1 ]; then
+      local backup_target="$skills_root/project-map.backup.$(date +%Y%m%d%H%M%S).$$"
+      mv "$skill_target" "$backup_target"
+      log "${runtime_label} 旧 Skill 已备份到 $backup_target"
+    else
+      die "$skill_target 已存在且内容不同；请先检查，或使用 --force-skill 备份后替换"
+    fi
+  fi
+  local install_stage
+  install_stage="$(mktemp -d "$skills_root/.project-map-install.XXXXXX")"
+  trap 'rm -rf "$install_stage"' EXIT
+  mkdir -p "$install_stage/project-map"
+  cp -R "$SKILL_SOURCE/." "$install_stage/project-map/"
+  mv "$install_stage/project-map" "$skill_target"
+  rmdir "$install_stage"
   trap - EXIT
-  log "project-map Skill 已安装到 $SKILL_TARGET"
-fi
+  [ -f "$skill_target/SKILL.md" ] || die "Skill 验证失败：$skill_target/SKILL.md"
+  log "${runtime_label} project-map Skill 已安装到 $skill_target"
+}
 
-[ -f "$SKILL_TARGET/SKILL.md" ] || die "Skill 验证失败：$SKILL_TARGET/SKILL.md"
+SKILLS_ROOT="$HOME/.agents/skills"
+if [ "$RUNTIME" = "codex" ]; then
+  install_skill "$SKILLS_ROOT" "Codex"
+else
+  install_skill "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills" "Claude Code"
+fi
 
 if [ "$SKIP_CLI" -eq 0 ]; then
   CLI_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/project-map-cli-install.XXXXXX")"
@@ -248,7 +279,7 @@ if [ "$SKIP_CLI" -eq 0 ]; then
   esac
 fi
 
-if [ "$SKIP_GSD" -eq 0 ]; then
+if [ "$SKIP_GSD" -eq 0 ] && [ "$RUNTIME" = "codex" ]; then
   GSD_HOME="${CODEX_HOME:-$HOME/.codex}"
   GSD_VERSION_FILE="$GSD_HOME/gsd-core/VERSION"
   [ -f "$GSD_VERSION_FILE" ] || die "GSD runtime 验证失败，缺少：$GSD_VERSION_FILE"
@@ -331,6 +362,21 @@ if [ "$SKIP_GSD" -eq 0 ]; then
   log "GSD 验收完成：${AGENT_COUNT:-核心} 个 Agent TOML，${ACTIVE_SKILL_COUNT} 个可见 GSD Skills"
 fi
 
+if [ "$SKIP_GSD" -eq 0 ] && [ "$RUNTIME" = "claude" ]; then
+  CLAUDE_HOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+  CLAUDE_GSD_VERSION_FILE="$CLAUDE_HOME/gsd-core/VERSION"
+  [ -f "$CLAUDE_GSD_VERSION_FILE" ] || die "Claude Code GSD runtime 验证失败，缺少：$CLAUDE_GSD_VERSION_FILE"
+  [ "$(tr -d '[:space:]' < "$CLAUDE_GSD_VERSION_FILE")" = "$GSD_VERSION" ] ||
+    die "Claude Code 已安装 GSD 版本与 $GSD_VERSION 不一致"
+  [ -f "$CLAUDE_HOME/skills/gsd-new-project/SKILL.md" ] ||
+    die "Claude Code GSD Skill 验证失败：缺少 gsd-new-project"
+  for agent_name in gsd-phase-researcher gsd-planner gsd-plan-checker gsd-executor; do
+    [ -f "$CLAUDE_HOME/agents/$agent_name.md" ] ||
+      die "Claude Code GSD 子 Agent 验证失败：缺少 $CLAUDE_HOME/agents/$agent_name.md"
+  done
+  log "Claude Code GSD 验收完成"
+fi
+
 if [ -n "$PROJECT_DIR" ]; then
   [ -x "$CLI_BIN" ] || die "使用 --project 时需要设备级 CLI；请移除 --skip-cli"
   if [ -f "$PROJECT_DIR/.planning/project-map/index.json" ]; then
@@ -346,14 +392,18 @@ if [ -n "$PROJECT_DIR" ]; then
       --source SRC-001)
     (cd "$PROJECT_DIR" && "$CLI_BIN" check --json)
   else
-    warn "设备组件已安装，但此项目尚未初始化；在项目中启动 Codex 并输入：\$project-map 初始化新项目"
+    warn "设备组件已安装，但此项目尚未初始化；请在所选运行时中调用 project-map 初始化新项目"
   fi
 fi
 
 log "安装完成"
 if [ "$SKIP_CLI" -eq 0 ]; then
-  log "下一步：重启 Codex，在新项目目录输入：\$project-map 初始化新项目"
+  if [ "$RUNTIME" = "codex" ]; then
+    log "下一步：重启 Codex，在新项目目录输入：\$project-map 初始化新项目"
+  else
+    log "下一步：重启 Claude Code，在新项目目录输入：/project-map 初始化新项目"
+  fi
 fi
 
 log "已完成所请求组件的安装与验收"
-log "如果新 Skills 尚未出现，请重启 Codex，然后使用 /skills 或输入 \$project-map 验证"
+log "如果新 Skills 尚未出现，请重启所选运行时后再次验证"

@@ -34,7 +34,7 @@ description: 初始化带 GSD 与 Project Map 的新项目，或在已有 .plann
 
 1. 确认当前目录就是目标项目目录。获取用户确认的项目名称和未经改写的原始想法；缺少时提问，不得代填。
 2. 若 `.planning/project-map/index.json` 不存在，立即运行 `project-map init --project-title <名称> --text <原始想法>` 保存不可变来源，再运行 `project-map add project --title <名称> --source SRC-001` 创建根节点；若已存在则不得覆盖，继续下一步。
-3. 若 `.planning/PROJECT.md` 不存在，继续调用已安装的 `$gsd-new-project`，将同一原始想法作为输入并完整保留其提问、研究、路线图、`AGENTS.md` 和提交门槛。不得改走 `gsd-new-milestone`。
+3. 若 `.planning/PROJECT.md` 不存在，继续调用已安装的 `gsd-new-project` Skill：Codex 使用 `$gsd-new-project`，Claude Code 使用 `/gsd-new-project`。将同一原始想法作为输入并完整保留其提问、研究、路线图、运行时项目说明文件和提交门槛。不得改走 `gsd-new-milestone`。
 4. GSD 初始化完成后运行 `project-map check --json`，报告下一步；不得再次安装 CLI 或 Skill。
 
 ## 已有项目工作流

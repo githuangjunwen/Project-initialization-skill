@@ -30,7 +30,7 @@ test('发布包包含中文安装、多端更新与回滚说明', async () => {
   assert.match(guide, /project-map-hidden-gsd-skills/);
   assert.match(guide, /~\/\.local\/bin\/project-map/);
   assert.match(guide, /\$project-map 初始化新项目/);
-  assert.match(guide, /\.\/install\.sh --project/);
+  assert.match(guide, /\.\/install\.sh --runtime codex --project/);
   assert.match(guide, /\.\/uninstall\.sh/);
   assert.match(guide, /文档职责与单一事实来源/);
   assert.doesNotMatch(guide, /node_modules\/\.bin\/project-map/);
@@ -111,7 +111,7 @@ esac
 
   for (let run = 0; run < 2; run += 1) {
     const result = spawnSync('bash', [
-      'uninstall.sh', '--project', project, '--reset-data', '--reset-surface'
+      'uninstall.sh', '--runtime', 'codex', '--project', project, '--reset-data', '--reset-surface'
     ], { cwd: process.cwd(), env, encoding: 'utf8' });
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   }
@@ -243,7 +243,7 @@ chmod +x "$cli_prefix/bin/project-map"
 
   for (let run = 0; run < 2; run += 1) {
     const result = spawnSync('bash', [
-      'install.sh', '--project', project, '--allow-dirty'
+      'install.sh', '--runtime', 'codex', '--project', project, '--allow-dirty'
     ], { cwd: process.cwd(), env, encoding: 'utf8' });
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   }
@@ -272,7 +272,7 @@ chmod +x "$cli_prefix/bin/project-map"
   await readFile(join(home, '.local/bin/project-map'), 'utf8');
 
   const deviceOnlyResult = spawnSync('bash', [
-    'install.sh', '--allow-dirty'
+    'install.sh', '--runtime', 'codex', '--allow-dirty'
   ], { cwd: process.cwd(), env, encoding: 'utf8' });
   assert.equal(
     deviceOnlyResult.status,
@@ -283,7 +283,7 @@ chmod +x "$cli_prefix/bin/project-map"
   const newProject = join(sandbox, 'blank-project');
   await mkdir(newProject);
   const initResult = spawnSync('bash', [
-    'install.sh', '--project', newProject, '--allow-dirty',
+    'install.sh', '--runtime', 'codex', '--project', newProject, '--allow-dirty',
     '--init-title', '新项目', '--init-text', '未经改写的原始想法'
   ], { cwd: process.cwd(), env, encoding: 'utf8' });
   assert.equal(initResult.status, 0, `${initResult.stdout}\n${initResult.stderr}`);
@@ -291,7 +291,7 @@ chmod +x "$cli_prefix/bin/project-map"
   assert.match(await readFile(join(home, 'cli-invocations.txt'), 'utf8'), /add project --title 新项目 --source SRC-001/);
 
   const fullSurfaceResult = spawnSync('bash', [
-    'install.sh', '--project', project, '--allow-dirty', '--gsd-surface', 'full'
+    'install.sh', '--runtime', 'codex', '--project', project, '--allow-dirty', '--gsd-surface', 'full'
   ], { cwd: process.cwd(), env, encoding: 'utf8' });
   assert.equal(fullSurfaceResult.status, 0, `${fullSurfaceResult.stdout}\n${fullSurfaceResult.stderr}`);
   await readFile(join(home, '.agents/skills/gsd-debug/SKILL.md'), 'utf8');
@@ -306,12 +306,29 @@ test('一键安装脚本在占位目标路径上先失败且不产生半安装�
   const env = { ...process.env, HOME: home };
   delete env.CODEX_HOME;
   const result = spawnSync('bash', [
-    'install.sh', '--project', '/absolute/path/to/target-project', '--allow-dirty'
+    'install.sh', '--runtime', 'codex', '--project', '/absolute/path/to/target-project', '--allow-dirty'
   ], { cwd: process.cwd(), env, encoding: 'utf8' });
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /文档占位符/);
   assert.equal(spawnSync('test', ['-e', join(home, '.agents')]).status, 1);
+});
+
+test('安装与卸载要求显式指定唯一运行时', async () => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'project-map-runtime-required-'));
+  const home = join(sandbox, 'home');
+  await mkdir(home, { recursive: true });
+  const env = { ...process.env, HOME: home };
+  const install = spawnSync('bash', ['install.sh', '--allow-dirty'], {
+    cwd: process.cwd(), env, encoding: 'utf8'
+  });
+  const uninstall = spawnSync('bash', ['uninstall.sh'], {
+    cwd: process.cwd(), env, encoding: 'utf8'
+  });
+  assert.equal(install.status, 1);
+  assert.equal(uninstall.status, 1);
+  assert.match(install.stderr, /必须显式提供 --runtime claude 或 --runtime codex/);
+  assert.match(uninstall.stderr, /必须显式提供 --runtime claude 或 --runtime codex/);
 });
 
 test('完整安装在 Node.js 版本不满足 GSD 要求时先失败', async () => {
@@ -342,7 +359,7 @@ fi
   };
   delete env.CODEX_HOME;
   const result = spawnSync('bash', [
-    'install.sh', '--project', project, '--allow-dirty'
+    'install.sh', '--runtime', 'codex', '--project', project, '--allow-dirty'
   ], { cwd: process.cwd(), env, encoding: 'utf8' });
 
   assert.equal(result.status, 1);
@@ -358,7 +375,7 @@ test('安装器拒绝会删减子 Agent 的非 full GSD profile', async () => {
   const env = { ...process.env, HOME: home };
   delete env.CODEX_HOME;
   const result = spawnSync('bash', [
-    'install.sh', '--gsd-profile', 'core', '--allow-dirty'
+    'install.sh', '--runtime', 'codex', '--gsd-profile', 'core', '--allow-dirty'
   ], { cwd: process.cwd(), env, encoding: 'utf8' });
 
   assert.equal(result.status, 1);
@@ -369,12 +386,84 @@ test('安装器拒绝会删减子 Agent 的非 full GSD profile', async () => {
 test('capability exposes one project-map skill and no internal command module', async () => {
   const manifest = JSON.parse(await readFile('capability/capability.json', 'utf8'));
   assert.equal(manifest.id, 'project-map');
-  assert.deepEqual(manifest.runtimeCompat.supported, ['codex']);
+  assert.deepEqual(manifest.runtimeCompat.supported, ['codex', 'claude-code']);
   assert.deepEqual(manifest.skills, ['project-map']);
   assert.equal('commands' in manifest, false);
   assert.equal('module' in manifest, false);
   assert.deepEqual(manifest.steps, []);
   assert.deepEqual(manifest.gates, []);
+});
+
+test('Claude Code 安装与 Codex Skill 隔离并使用官方 runtime 投射', async () => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'project-map-claude-installer-'));
+  const fakeBin = join(sandbox, 'bin');
+  const home = join(sandbox, 'home');
+  await mkdir(fakeBin, { recursive: true });
+  await mkdir(home, { recursive: true });
+  const fakeNode = join(fakeBin, 'node');
+  await writeFile(fakeNode, `#!/bin/sh
+if [ "\${1:-}" = "-p" ]; then printf '24\n'; else exec "${process.execPath}" "$@"; fi
+`);
+  await chmod(fakeNode, 0o755);
+  await writeFile(join(fakeBin, 'claude'), '#!/bin/sh\nexit 0\n');
+  await chmod(join(fakeBin, 'claude'), 0o755);
+  const fakeNpx = join(fakeBin, 'npx');
+  await writeFile(fakeNpx, `#!/bin/sh
+set -eu
+printf '%s\n' "$*" > "$HOME/claude-gsd-install-args.txt"
+mkdir -p "$HOME/.claude/gsd-core" "$HOME/.claude/skills/gsd-new-project" "$HOME/.claude/agents"
+printf '1.11.0\n' > "$HOME/.claude/gsd-core/VERSION"
+: > "$HOME/.claude/skills/gsd-new-project/SKILL.md"
+for name in gsd-phase-researcher gsd-planner gsd-plan-checker gsd-executor; do
+  : > "$HOME/.claude/agents/$name.md"
+done
+`);
+  await chmod(fakeNpx, 0o755);
+  const env = { ...process.env, HOME: home, PATH: `${fakeBin}:${process.env.PATH}` };
+  delete env.CODEX_HOME;
+  delete env.CLAUDE_CONFIG_DIR;
+  const result = spawnSync('bash', [
+    'install.sh', '--runtime', 'claude', '--skip-cli', '--allow-dirty'
+  ], { cwd: process.cwd(), env, encoding: 'utf8' });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  await readFile(join(home, '.claude/skills/project-map/SKILL.md'), 'utf8');
+  await readFile(join(home, '.claude/agents/gsd-planner.md'), 'utf8');
+  assert.equal(spawnSync('test', ['-e', join(home, '.agents/skills/project-map')]).status, 1);
+  assert.match(await readFile(join(home, 'claude-gsd-install-args.txt'), 'utf8'), /--claude --global --profile=full/);
+});
+
+test('只卸载 Claude Code 时保留已安装的 Codex Skill 与共享 CLI', async () => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'project-map-claude-uninstaller-'));
+  const fakeBin = join(sandbox, 'bin');
+  const home = join(sandbox, 'home');
+  const claudeSkill = join(home, '.claude/skills/project-map');
+  const codexSkill = join(home, '.agents/skills/project-map');
+  await mkdir(fakeBin, { recursive: true });
+  await mkdir(claudeSkill, { recursive: true });
+  await mkdir(codexSkill, { recursive: true });
+  await mkdir(join(home, '.claude/gsd-core'), { recursive: true });
+  await mkdir(join(home, '.local/bin'), { recursive: true });
+  await writeFile(join(claudeSkill, 'SKILL.md'), 'claude\n');
+  await writeFile(join(codexSkill, 'SKILL.md'), 'codex\n');
+  await writeFile(join(home, '.claude/gsd-core/VERSION'), '1.11.0\n');
+  await writeFile(join(home, '.local/bin/project-map'), '#!/bin/sh\n');
+  const fakeNpx = join(fakeBin, 'npx');
+  await writeFile(fakeNpx, `#!/bin/sh
+set -eu
+printf '%s\n' "$*" > "$HOME/claude-gsd-uninstall-args.txt"
+rm -f "$HOME/.claude/gsd-core/VERSION"
+`);
+  await chmod(fakeNpx, 0o755);
+  const env = { ...process.env, HOME: home, PATH: `${fakeBin}:${process.env.PATH}` };
+  delete env.CLAUDE_CONFIG_DIR;
+  const result = spawnSync('bash', [
+    'uninstall.sh', '--runtime', 'claude'
+  ], { cwd: process.cwd(), env, encoding: 'utf8' });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  await assert.rejects(readFile(join(claudeSkill, 'SKILL.md'), 'utf8'));
+  await readFile(join(codexSkill, 'SKILL.md'), 'utf8');
+  await readFile(join(home, '.local/bin/project-map'), 'utf8');
+  assert.match(await readFile(join(home, 'claude-gsd-uninstall-args.txt'), 'utf8'), /--claude --global --uninstall/);
 });
 
 test('skill routes Chinese resume intent through focus before GSD handoff', async () => {

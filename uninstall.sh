@@ -8,6 +8,7 @@ KEEP_SKILL=0
 KEEP_CLI=0
 RESET_DATA=0
 RESET_SURFACE=0
+RUNTIME=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
 log() {
@@ -26,25 +27,28 @@ die() {
 usage() {
   cat <<'EOF'
 用法：
-  ./uninstall.sh [options]
-  ./uninstall.sh --project /真实/项目路径 [options]
+  ./uninstall.sh --runtime claude|codex [options]
+  ./uninstall.sh --runtime claude|codex --project /真实/项目路径 [options]
 
-一键卸载设备级 GSD、project-map Codex Skill 和 project-map CLI。提供
+一键卸载指定运行时的设备级 GSD、project-map Skill 和共享 CLI。必须显式指定
+--runtime claude 或 --runtime codex。提供
 --project 时会清理旧版项目本地 CLI；项目数据默认保留。
 
 选项：
   --project PATH     清理旧版项目本地 CLI，或配合 --reset-data 使用
   --reset-data       将 .planning/project-map 移到带时间戳的备份后重置
   --reset-surface    备份并清除 GSD surface 选择，供干净重装测试
+  --runtime RUNTIME  必填：claude 或 codex
   --keep-gsd         保留设备级 GSD runtime 和 gsd-* Skills
   --keep-skill       保留用户级 project-map Skill
   --keep-cli         保留设备级 project-map CLI
   -h, --help         显示帮助
 
 示例：
-  ./uninstall.sh
-  ./uninstall.sh --project /opt/ceshi/ds-wechat-api-ubuntu
-  ./uninstall.sh --project /opt/ceshi/ds-wechat-api-ubuntu \
+  ./uninstall.sh --runtime claude
+  ./uninstall.sh --runtime codex
+  ./uninstall.sh --runtime codex --project /opt/ceshi/ds-wechat-api-ubuntu
+  ./uninstall.sh --runtime codex --project /opt/ceshi/ds-wechat-api-ubuntu \
     --reset-data --reset-surface
 EOF
 }
@@ -63,6 +67,11 @@ while [ "$#" -gt 0 ]; do
     --reset-surface)
       RESET_SURFACE=1
       shift
+      ;;
+    --runtime)
+      [ "$#" -ge 2 ] || die "--runtime 缺少值"
+      RUNTIME="$2"
+      shift 2
       ;;
     --keep-gsd)
       KEEP_GSD=1
@@ -86,6 +95,12 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+case "$RUNTIME" in
+  claude|codex) ;;
+  '') die "必须显式提供 --runtime claude 或 --runtime codex" ;;
+  *) die "不支持的 runtime：${RUNTIME}；可选值为 claude、codex" ;;
+esac
+
 if [ "$RESET_DATA" -eq 1 ] && [ -z "$PROJECT_DIR" ]; then
   die "--reset-data 必须与 --project 一起使用"
 fi
@@ -99,6 +114,8 @@ fi
 GSD_HOME="${CODEX_HOME:-$HOME/.codex}"
 SKILLS_ROOT="$HOME/.agents/skills"
 SKILL_TARGET="$SKILLS_ROOT/project-map"
+CLAUDE_HOME="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+CLAUDE_SKILL_TARGET="$CLAUDE_HOME/skills/project-map"
 BACKUP_ROOT="$HOME/.project-map-uninstall-backups"
 BACKUP_ID="$(date -u +%Y%m%dT%H%M%SZ).$$"
 BACKUP_DIR="$BACKUP_ROOT/$BACKUP_ID"
@@ -112,6 +129,15 @@ backup_move() {
   mv "$source_path" "$BACKUP_DIR/$backup_name"
   log "已备份 $source_path → $BACKUP_DIR/$backup_name"
 }
+
+# CLI 为两端共享；另一端仍安装时，不因单端卸载而移除它。
+if [ "$RUNTIME" = "codex" ] && { [ -e "$CLAUDE_SKILL_TARGET" ] || [ -L "$CLAUDE_SKILL_TARGET" ]; }; then
+  KEEP_CLI=1
+  warn "检测到 Claude Code project-map Skill；已保留共享 CLI"
+elif [ "$RUNTIME" = "claude" ] && { [ -e "$SKILL_TARGET" ] || [ -L "$SKILL_TARGET" ]; }; then
+  KEEP_CLI=1
+  warn "检测到 Codex project-map Skill；已保留共享 CLI"
+fi
 
 if [ -n "$PROJECT_DIR" ]; then
   if [ -f "$PROJECT_DIR/package.json" ]; then
@@ -147,17 +173,27 @@ else
   log "已按 --keep-cli 保留设备级 project-map CLI"
 fi
 
-if [ "$KEEP_SKILL" -eq 0 ]; then
+if [ "$KEEP_SKILL" -eq 0 ] && [ "$RUNTIME" = "codex" ]; then
   if [ -e "$SKILL_TARGET" ] || [ -L "$SKILL_TARGET" ]; then
     backup_move "$SKILL_TARGET" "project-map-skill"
   else
     log "project-map Skill 未安装，无需卸载"
   fi
 else
-  log "已按 --keep-skill 保留 project-map Skill"
+  log "已保留 Codex project-map Skill"
 fi
 
-if [ "$KEEP_GSD" -eq 0 ]; then
+if [ "$KEEP_SKILL" -eq 0 ] && [ "$RUNTIME" = "claude" ]; then
+  if [ -e "$CLAUDE_SKILL_TARGET" ] || [ -L "$CLAUDE_SKILL_TARGET" ]; then
+    backup_move "$CLAUDE_SKILL_TARGET" "project-map-claude-skill"
+  else
+    log "Claude Code project-map Skill 未安装，无需卸载"
+  fi
+else
+  log "已保留 Claude Code project-map Skill"
+fi
+
+if [ "$KEEP_GSD" -eq 0 ] && [ "$RUNTIME" = "codex" ]; then
   GSD_VERSION_FILE="$GSD_HOME/gsd-core/VERSION"
   if [ -f "$GSD_VERSION_FILE" ]; then
     GSD_VERSION="$(tr -d '[:space:]' < "$GSD_VERSION_FILE")"
@@ -181,10 +217,28 @@ if [ "$KEEP_GSD" -eq 0 ]; then
     fi
   fi
 else
-  log "已按 --keep-gsd 保留 GSD"
+  log "已保留 Codex GSD"
 fi
 
-if [ "$RESET_SURFACE" -eq 1 ] || [ "$KEEP_GSD" -eq 0 ]; then
+if [ "$KEEP_GSD" -eq 0 ] && [ "$RUNTIME" = "claude" ]; then
+  CLAUDE_GSD_VERSION_FILE="$CLAUDE_HOME/gsd-core/VERSION"
+  if [ -f "$CLAUDE_GSD_VERSION_FILE" ]; then
+    CLAUDE_GSD_VERSION="$(tr -d '[:space:]' < "$CLAUDE_GSD_VERSION_FILE")"
+    case "$CLAUDE_GSD_VERSION" in
+      ''|*[!0-9A-Za-z.+-]*) die "无法安全解析 Claude Code 已安装的 GSD 版本：$CLAUDE_GSD_VERSION" ;;
+    esac
+    command -v npx >/dev/null 2>&1 || die "缺少必要命令：npx"
+    log "正在使用官方卸载器移除 Claude Code GSD $CLAUDE_GSD_VERSION"
+    npx -y "@opengsd/gsd-core@$CLAUDE_GSD_VERSION" --claude --global --uninstall
+    [ ! -f "$CLAUDE_GSD_VERSION_FILE" ] || die "Claude Code GSD 卸载验证失败：VERSION 仍存在"
+  else
+    log "Claude Code GSD runtime 未安装，无需卸载"
+  fi
+else
+  log "已保留 Claude Code GSD"
+fi
+
+if [ "$RUNTIME" = "codex" ] && { [ "$RESET_SURFACE" -eq 1 ] || [ "$KEEP_GSD" -eq 0 ]; }; then
   SURFACE_FILE="$GSD_HOME/.gsd-surface.json"
   if [ -e "$SURFACE_FILE" ] || [ -L "$SURFACE_FILE" ]; then
     backup_move "$SURFACE_FILE" "gsd-surface.json"

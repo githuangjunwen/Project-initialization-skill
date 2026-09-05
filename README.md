@@ -31,7 +31,7 @@ P-001     E-001   F-001    S-001   T-001
 
 ## 快速安装（新设备）
 
-要求：已安装 Git、Codex CLI 或 Codex Desktop。完整安装 GSD 1.11.0 需要 Node.js 24+；仅使用 Project Map 时需要 Node.js 18+。
+要求：已安装 Git，以及 Codex 或 Claude Code。完整安装 GSD 1.11.0 需要 Node.js 24+；仅使用 Project Map 时需要 Node.js 18+。
 
 安装后只有两个层次：设备共享 GSD、`project-map` Skill 与 CLI；各项目保存自己的 `.planning/` 数据。完整的多设备、更新与回滚说明见[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)。
 
@@ -40,7 +40,7 @@ P-001     E-001   F-001    S-001   T-001
 ```bash
 git clone https://github.com/githuangjunwen/Project-initialization-skill.git
 cd Project-initialization-skill
-./install.sh
+./install.sh --runtime codex
 ```
 
 这条命令没有占位参数，会一次完成设备级 GSD、`project-map` Skill 和共享 CLI 安装。安装后重启 Codex，在任意新项目目录输入：
@@ -51,18 +51,27 @@ $project-map 初始化新项目
 
 Skill 会保存未经改写的原始想法，并在项目尚未建立 GSD 文件时继续执行 `$gsd-new-project`。无需为每个项目安装 npm 依赖。
 
+安装命令必须明确指定目标运行时：
+
+```bash
+./install.sh --runtime claude
+./install.sh --runtime codex
+```
+
+Claude Code 中使用 `/project-map 初始化新项目`；Codex 中继续使用 `$project-map 初始化新项目`。两者共享设备级 CLI 和项目中的 `.planning/project-map/` 数据，但 Skill、GSD runtime 与 Agent 文件分别安装，互不覆盖。
+
 要在安装后立即验证某个已有项目，可以传入真实存在的路径：
 
 ```bash
-./install.sh --project /opt/ceshi/ds-wechat-api-ubuntu
+./install.sh --runtime codex --project /opt/ceshi/ds-wechat-api-ubuntu
 ```
 
-`--project` 只用于验证或通过下面的参数初始化数据，不是安装 CLI 的必需参数。如果本仓库正好克隆在目标项目里面，可以使用 `./install.sh --project ..`。
+`--project` 只用于验证或通过下面的参数初始化数据，不是安装 CLI 的必需参数。如果本仓库正好克隆在目标项目里面，可以使用 `./install.sh --runtime codex --project ..`。
 
 如果目标项目还没有 `.planning/project-map`，并且你已经准备好真实的项目名称与原始需求，可以在同一次安装中初始化：
 
 ```bash
-./install.sh \
+./install.sh --runtime codex \
   --project /opt/ceshi/ds-wechat-api-ubuntu \
   --init-title "项目名称" \
   --init-text "项目的原始想法"
@@ -73,13 +82,13 @@ Skill 会保存未经改写的原始想法，并在项目尚未建立 GSD 文件
 快速卸载设备级组件：
 
 ```bash
-./uninstall.sh
+./uninstall.sh --runtime codex
 ```
 
 清理旧版本遗留在目标项目中的 npm 依赖：
 
 ```bash
-./uninstall.sh --project /opt/ceshi/ds-wechat-api-ubuntu
+./uninstall.sh --runtime codex --project /opt/ceshi/ds-wechat-api-ubuntu
 ```
 
 项目数据默认保留，GSD surface 状态会在默认卸载时自动备份并清除；如要同时重测项目数据，传入真实的 `--project` 并追加 `--reset-data`。
@@ -233,7 +242,7 @@ project-map check --json
 
 ## Capability 边界
 
-该 Capability 只暴露一个设备级 Skill：`project-map`。需求探索、就绪检查和 GSD 交接细节分别位于按需读取的参考资料中。其清单面向 GSD `>=1.6.0 <2.0.0` 与 Codex。
+该 Capability 只暴露一个设备级 Skill：`project-map`。需求探索、就绪检查和 GSD 交接细节分别位于按需读取的参考资料中。其清单面向 GSD `>=1.6.0 <2.0.0`，支持 Codex 与 Claude Code runtime 投射。
 
 设备级 Skill 不替代 GSD runtime、共享 CLI 或项目数据初始化；一键脚本会统一安装并验收这些运行组件。
 
