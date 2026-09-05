@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-GSD_VERSION="1.11.0"
+GSD_VERSION="1.12.0"
 GSD_PROFILE="full"
 GSD_SURFACE="core"
 RUNTIME=""
@@ -42,7 +42,7 @@ usage() {
   --project PATH          安装后验证或初始化此项目（可选）
   --init-title TITLE      用此项目名称初始化新的 project-map 数据
   --init-text TEXT        与 --init-title 一起使用的原始需求
-  --gsd-version VERSION   GSD 版本（默认：1.11.0）
+  --gsd-version VERSION   GSD 版本（默认：1.12.0）
   --gsd-profile PROFILE   GSD 安装完整度；本安装器要求 full（默认：full）
   --gsd-surface PROFILE   Desktop Skill 展示：core 或 full（默认：core）
   --runtime RUNTIME       必填：claude 或 codex
@@ -190,8 +190,8 @@ case "$NODE_MAJOR" in
 esac
 [ "$NODE_MAJOR" -ge 18 ] || die "需要 Node.js 18 或更高版本"
 
-if [ "$SKIP_GSD" -eq 0 ] && [ "$GSD_VERSION" = "1.11.0" ] && [ "$NODE_MAJOR" -lt 24 ]; then
-  die "GSD 1.11.0 要求 Node.js 24 或更高版本；当前为 $(node --version)。升级 Node.js，或仅安装 Project Map 时使用 --skip-gsd"
+if [ "$SKIP_GSD" -eq 0 ] && [ "$GSD_VERSION" = "1.12.0" ] && [ "$NODE_MAJOR" -lt 22 ]; then
+  die "GSD 1.12.0 要求 Node.js 22 或更高版本；当前为 $(node --version)。升级 Node.js，或仅安装 Project Map 时使用 --skip-gsd"
 fi
 
 case "$(uname -s)" in

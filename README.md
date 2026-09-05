@@ -39,7 +39,7 @@ P-001     E-001   F-001    S-001   T-001
 
 ## 快速安装（新设备）
 
-要求：已安装 Git，以及 Codex 或 Claude Code。完整安装 GSD 1.11.0 需要 Node.js 24+；仅使用 Project Map 时需要 Node.js 18+。
+要求：已安装 Git，以及 Codex 或 Claude Code。完整安装 GSD 1.12.0 需要 Node.js 22+；仅使用 Project Map 时需要 Node.js 18+。
 
 安装后只有两个层次：设备共享 GSD、`project-map` Skill 与 CLI；各项目保存自己的 `.planning/` 数据。完整的多设备、更新与回滚说明见[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)。
 

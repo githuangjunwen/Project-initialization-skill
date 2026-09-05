@@ -24,7 +24,7 @@ test('发布包包含中文安装、多端更新与回滚说明', async () => {
   assert.match(guide, /多设备日常操作协议/);
   assert.match(guide, /回滚流程/);
   assert.match(guide, /\.agents\/skills\/project-map/);
-  assert.match(guide, /GSD 1\.11\.0 需要 Node\.js 24/);
+  assert.match(guide, /GSD 1\.12\.0 需要 Node\.js 22/);
   assert.match(guide, /默认.*full/);
   assert.match(guide, /~\/\.codex\/agents\/gsd-\*\.toml/);
   assert.match(guide, /project-map-hidden-gsd-skills/);
@@ -49,7 +49,7 @@ test('发布包包含中文安装、多端更新与回滚说明', async () => {
   // 历史设计与实施计划保留为证据，但必须明确阻止读者当作现行手册。
   assert.match(design, /历史设计文档/);
   assert.match(historicalPlan, /历史实施计划/);
-  assert.match(historicalPlan, /当前 GSD 1\.11\.0 不应照抄执行/);
+  assert.match(historicalPlan, /当前 GSD 1\.12\.0 不应照抄执行/);
 });
 
 test('一键卸载脚本移除运行组件并为数据与 surface 创建可恢复备份', async () => {
@@ -72,7 +72,7 @@ test('一键卸载脚本移除运行组件并为数据与 surface 创建可恢�
   await writeFile(join(project, 'package.json'), '{"name":"target","private":true}\n');
   await writeFile(join(skill, 'SKILL.md'), 'project-map\n');
   await writeFile(join(gsdSkill, 'SKILL.md'), 'gsd\n');
-  await writeFile(join(gsdCore, 'VERSION'), '1.11.0\n');
+  await writeFile(join(gsdCore, 'VERSION'), '1.12.0\n');
   await writeFile(join(home, '.codex/project-map-hidden-gsd-skills/gsd-debug/SKILL.md'), 'debug\n');
   await writeFile(join(home, '.codex/project-map-hidden-gsd-skills/.project-map-managed'), 'managed\n');
   await writeFile(join(home, '.codex/.gsd-surface.json'), '{"baseProfile":"full"}\n');
@@ -187,7 +187,7 @@ for skill_name in new-project discuss-phase plan-phase execute-phase phase help 
   mkdir -p "$HOME/.agents/skills/gsd-$skill_name"
   : > "$HOME/.agents/skills/gsd-$skill_name/SKILL.md"
 done
-printf '1.11.0\\n' > "$HOME/.codex/gsd-core/VERSION"
+printf '1.12.0\\n' > "$HOME/.codex/gsd-core/VERSION"
 printf 'full\\n' > "$HOME/.codex/.gsd-profile"
 case "$*" in
   *--profile=full*)
@@ -251,7 +251,7 @@ chmod +x "$cli_prefix/bin/project-map"
   await readFile(join(home, '.agents/skills/project-map/SKILL.md'), 'utf8');
   assert.equal(
     (await readFile(join(home, '.codex/gsd-core/VERSION'), 'utf8')).trim(),
-    '1.11.0'
+    '1.12.0'
   );
   await readFile(join(home, '.agents/skills/gsd-surface/SKILL.md'), 'utf8');
   assert.match(await readFile(join(home, 'gsd-install-args.txt'), 'utf8'), /--profile=full/);
@@ -345,9 +345,9 @@ test('完整安装在 Node.js 版本不满足 GSD 要求时先失败', async () 
   await writeFile(fakeNode, `#!/bin/sh
 set -eu
 if [ "\${1:-}" = "-p" ]; then
-  printf '22\n'
+  printf '21\n'
 else
-  printf 'v22.23.2\n'
+  printf 'v21.23.2\n'
 fi
 `);
   await chmod(fakeNode, 0o755);
@@ -363,7 +363,7 @@ fi
   ], { cwd: process.cwd(), env, encoding: 'utf8' });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /GSD 1\.11\.0 要求 Node\.js 24/);
+  assert.match(result.stderr, /GSD 1\.12\.0 要求 Node\.js 22/);
   assert.equal(spawnSync('test', ['-e', join(home, '.agents')]).status, 1);
 });
 
@@ -412,7 +412,7 @@ if [ "\${1:-}" = "-p" ]; then printf '24\n'; else exec "${process.execPath}" "$@
 set -eu
 printf '%s\n' "$*" > "$HOME/claude-gsd-install-args.txt"
 mkdir -p "$HOME/.claude/gsd-core" "$HOME/.claude/skills/gsd-new-project" "$HOME/.claude/agents"
-printf '1.11.0\n' > "$HOME/.claude/gsd-core/VERSION"
+printf '1.12.0\n' > "$HOME/.claude/gsd-core/VERSION"
 : > "$HOME/.claude/skills/gsd-new-project/SKILL.md"
 for name in gsd-phase-researcher gsd-planner gsd-plan-checker gsd-executor; do
   : > "$HOME/.claude/agents/$name.md"
@@ -445,7 +445,7 @@ test('只卸载 Claude Code 时保留已安装的 Codex Skill 与共享 CLI', as
   await mkdir(join(home, '.local/bin'), { recursive: true });
   await writeFile(join(claudeSkill, 'SKILL.md'), 'claude\n');
   await writeFile(join(codexSkill, 'SKILL.md'), 'codex\n');
-  await writeFile(join(home, '.claude/gsd-core/VERSION'), '1.11.0\n');
+  await writeFile(join(home, '.claude/gsd-core/VERSION'), '1.12.0\n');
   await writeFile(join(home, '.local/bin/project-map'), '#!/bin/sh\n');
   const fakeNpx = join(fakeBin, 'npx');
   await writeFile(fakeNpx, `#!/bin/sh

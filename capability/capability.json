@@ -1,7 +1,7 @@
 {
   "id": "project-map",
   "role": "feature",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "title": "Project Map",
   "description": "Adds recursive requirements, focused resume context, decision gates, and trace links around the GSD phase loop.",
   "tier": "standard",

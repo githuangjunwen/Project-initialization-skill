@@ -752,7 +752,7 @@ Blocked on 2026-08-20 by the environment npm certificate chain (`UNABLE_TO_GET_I
 
 Run after the user authorizes dependency installation:
 
-> 历史记录：下面是 2026-08-20 当时拟验证但未完成的命令，当前 GSD 1.11.0 不应照抄执行。现行命令见 [`docs/安装部署与更新.md`](../../安装部署与更新.md#gsd-capability-安装)。
+> 历史记录：下面是 2026-08-20 当时拟验证但未完成的命令，当前 GSD 1.12.0 不应照抄执行。现行命令见 [`docs/安装部署与更新.md`](../../安装部署与更新.md#gsd-capability-安装)。
 
 ```text
 gsd capability install ./capability --scope project
