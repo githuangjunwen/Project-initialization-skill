@@ -26,3 +26,19 @@ GSD 命令投射因运行时和版本而异。先检查已安装 GSD 的帮助�
 6. 运行 Project Map `check`；若交付期间需求变更，运行 `impact` 并要求复核后再继续。
 
 不得在 Project Map 内生成并行的路线图、计划、任务报告或验证报告。
+
+## 精简执行与失败恢复
+
+根据变更风险只选择一条路径：
+
+- 熟悉领域且低风险：`/gsd-plan-phase <phase> --skip-research --skip-verify`，随后 `/gsd-execute-phase <phase> --interactive`。
+- 普通功能：`/gsd-plan-phase <phase> --skip-research`，随后 `/gsd-execute-phase <phase> --interactive`。
+- 安装器、卸载器、权限、安全、不可逆文件操作或发布变更：保留研究、计划检查和最终验证，并显式运行实际安装中可用的安全审计或代码审查命令。
+
+验证失败不得自动重跑完整阶段：
+
+1. 区分实现缺陷与环境、权限、依赖或工具故障；后者停止并报告，不触发重新规划。
+2. 首次实现缺陷由当前上下文局部修复，只重跑失败测试，再执行一次阶段验证。
+3. 需要补充计划时只运行 `/gsd-plan-phase <phase> --gaps`，再运行 `/gsd-execute-phase <phase> --gaps-only --interactive`。
+4. 同一失败指纹再次出现时停止自动修复并请求用户决策。
+5. 只有需求、验收标准或架构边界发生变化才允许完整重新规划；需求变化必须先运行 `project-map impact <ID> --json`。

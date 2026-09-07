@@ -217,6 +217,11 @@ CLI_BIN="$CLI_PREFIX/bin/project-map"
 
 if [ "$SKIP_GSD" -eq 0 ]; then
   if [ "$RUNTIME" = "codex" ]; then
+    GSD_DEFAULTS_FILE="$HOME/.gsd/defaults.json"
+    GSD_MODEL_ROUTING="$SCRIPT_DIR/capability/config/gsd-codex-model-routing.json"
+    [ -f "$GSD_MODEL_ROUTING" ] || die "缺少 Codex 模型路由：$GSD_MODEL_ROUTING"
+    node "$SCRIPT_DIR/src/configure-gsd-defaults.mjs" "$GSD_DEFAULTS_FILE" "$GSD_MODEL_ROUTING"
+    log "已写入 Codex 分职责模型路由（保留 ~/.gsd/defaults.json 中的其他配置）"
     log "正在为 Codex 完整安装 GSD ${GSD_VERSION}（profile：${GSD_PROFILE}，Skill 展示：${GSD_SURFACE}）"
     npx -y "@opengsd/gsd-core@$GSD_VERSION" --codex --global "--profile=$GSD_PROFILE"
   else

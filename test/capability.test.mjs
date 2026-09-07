@@ -26,6 +26,8 @@ test('发布包包含中文安装、多端更新与回滚说明', async () => {
   assert.match(guide, /\.agents\/skills\/project-map/);
   assert.match(guide, /GSD 1\.12\.0 需要 Node\.js 22/);
   assert.match(guide, /默认.*full/);
+  assert.match(guide, /分职责模型路由/);
+  assert.match(guide, /--gaps-only --interactive/);
   assert.match(guide, /~\/\.codex\/agents\/gsd-\*\.toml/);
   assert.match(guide, /project-map-hidden-gsd-skills/);
   assert.match(guide, /~\/\.local\/bin\/project-map/);
@@ -255,6 +257,16 @@ chmod +x "$cli_prefix/bin/project-map"
   );
   await readFile(join(home, '.agents/skills/gsd-surface/SKILL.md'), 'utf8');
   assert.match(await readFile(join(home, 'gsd-install-args.txt'), 'utf8'), /--profile=full/);
+  const gsdDefaults = JSON.parse(await readFile(join(home, '.gsd/defaults.json'), 'utf8'));
+  assert.equal(gsdDefaults.runtime, 'codex');
+  assert.equal(gsdDefaults.resolve_model_ids, 'omit');
+  assert.equal(gsdDefaults.model_overrides['gsd-planner'], 'gpt-6-astra');
+  assert.equal(gsdDefaults.model_overrides['gsd-executor'], 'gpt-5.6-terra');
+  assert.equal(gsdDefaults.model_overrides['gsd-codebase-mapper'], 'gpt-5.6-luna');
+  assert.equal(gsdDefaults.effort.routing_tier_defaults.heavy, 'high');
+  assert.equal(gsdDefaults.effort.agent_overrides['gsd-planner'], 'high');
+  assert.equal(gsdDefaults.effort.agent_overrides['gsd-executor'], 'medium');
+  assert.equal(gsdDefaults.effort.agent_overrides['gsd-codebase-mapper'], 'low');
   await readFile(join(home, '.codex/agents/gsd-phase-researcher.toml'), 'utf8');
   await readFile(join(home, '.codex/agents/gsd-planner.toml'), 'utf8');
   await readFile(join(home, '.codex/agents/gsd-plan-checker.toml'), 'utf8');
@@ -495,4 +507,30 @@ test('references keep discovery, deterministic gates, and GSD mapping separate',
   assert.match(discovery, /业务规则/);
   assert.match(readiness, /CRITICAL_DECISION_UNCONFIRMED/);
   assert.match(handoff, /GSD/);
+  assert.match(handoff, /--skip-research --skip-verify/);
+  assert.match(handoff, /--gaps-only --interactive/);
+  assert.match(handoff, /同一失败指纹再次出现时停止自动修复/);
+});
+
+test('Codex 模型路由合并时保留用户的其他 GSD defaults', async () => {
+  const sandbox = await mkdtemp(join(tmpdir(), 'project-map-gsd-defaults-'));
+  const defaults = join(sandbox, 'defaults.json');
+  await writeFile(defaults, JSON.stringify({ context: '保留我', workflow: { tdd_mode: true } }));
+
+  const result = spawnSync(process.execPath, [
+    'src/configure-gsd-defaults.mjs',
+    defaults,
+    'capability/config/gsd-codex-model-routing.json'
+  ], { cwd: process.cwd(), encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+
+  const merged = JSON.parse(await readFile(defaults, 'utf8'));
+  assert.equal(merged.context, '保留我');
+  assert.equal(merged.workflow.tdd_mode, true);
+  assert.equal(merged.runtime, 'codex');
+  assert.equal(merged.model_overrides['gsd-debugger'], 'gpt-6-astra');
+  assert.equal(merged.model_overrides['gsd-verifier'], 'gpt-5.6-terra');
+  assert.equal(merged.effort.default, 'medium');
+  assert.equal(merged.effort.agent_overrides['gsd-debugger'], 'high');
+  assert.equal(merged.effort.agent_overrides['gsd-verifier'], 'medium');
 });

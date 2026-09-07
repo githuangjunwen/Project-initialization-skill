@@ -87,6 +87,8 @@ Claude Code 中使用 `/project-map 初始化新项目`；Codex 中继续使用 
 
 脚本默认完整安装 GSD `full` profile 和全部 Agent、Hooks、工作流，再把 ChatGPT Desktop/Codex 的 Skill 展示收敛为 8 个核心 GSD Skills；隐藏项会保存在设备级副本中，不会损失完整安装能力。需要临时显示全部 Skills 时传入 `--gsd-surface full`。脚本会分别验收完整能力层和精简展示层，并从当前克隆安装同源的设备 CLI；已有不同内容的 Skill 默认不会被覆盖。所有选项、Windows 安装、更新、回滚和故障排查只在[《安装、部署与更新》](docs/%E5%AE%89%E8%A3%85%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9B%B4%E6%96%B0.md)维护，避免两份命令长期漂移。
 
+Codex 安装会在保留 `~/.gsd/defaults.json` 其他字段的前提下写入分职责模型与推理强度路由：规划、调试和高风险审查使用 `high`，执行与门禁使用 `medium`，研究、映射和文档使用 `low`；不向 GSD Agent 分配 Ultra。项目自己的 `.planning/config.json` 仍可覆盖设备默认值。Project Map 的 GSD 交接采用局部 gap 修复；验证失败不会自动回退并重跑整个阶段。
+
 快速卸载设备级组件：
 
 ```bash

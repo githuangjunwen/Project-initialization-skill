@@ -1,0 +1,45 @@
+{
+  "runtime": "codex",
+  "resolve_model_ids": "omit",
+  "model_profile": "balanced",
+  "model_overrides": {
+    "gsd-planner": "gpt-6-astra",
+    "gsd-debugger": "gpt-6-astra",
+    "gsd-roadmapper": "gpt-5.6-sol",
+    "gsd-security-auditor": "gpt-5.6-sol",
+    "gsd-code-reviewer": "gpt-5.6-sol",
+    "gsd-executor": "gpt-5.6-terra",
+    "gsd-plan-checker": "gpt-5.6-terra",
+    "gsd-verifier": "gpt-5.6-terra",
+    "gsd-phase-researcher": "gpt-5.6-luna",
+    "gsd-project-researcher": "gpt-5.6-luna",
+    "gsd-research-synthesizer": "gpt-5.6-luna",
+    "gsd-pattern-mapper": "gpt-5.6-luna",
+    "gsd-codebase-mapper": "gpt-5.6-luna",
+    "gsd-doc-writer": "gpt-5.6-luna"
+  },
+  "effort": {
+    "default": "medium",
+    "routing_tier_defaults": {
+      "light": "low",
+      "standard": "medium",
+      "heavy": "high"
+    },
+    "agent_overrides": {
+      "gsd-planner": "high",
+      "gsd-debugger": "high",
+      "gsd-roadmapper": "high",
+      "gsd-security-auditor": "high",
+      "gsd-code-reviewer": "high",
+      "gsd-executor": "medium",
+      "gsd-plan-checker": "medium",
+      "gsd-verifier": "medium",
+      "gsd-phase-researcher": "low",
+      "gsd-project-researcher": "low",
+      "gsd-research-synthesizer": "low",
+      "gsd-pattern-mapper": "low",
+      "gsd-codebase-mapper": "low",
+      "gsd-doc-writer": "low"
+    }
+  }
+}
