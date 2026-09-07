@@ -4,7 +4,7 @@
   "runtime": "codex",
   "model_profile": "balanced",
   "model_overrides": {
-    "gsd-planner": "gpt-6-astra",
+    "gsd-planner": "gpt-5.6-sol",
     "gsd-debugger": "gpt-6-astra",
     "gsd-roadmapper": "gpt-5.6-sol",
     "gsd-security-auditor": "gpt-5.6-sol",
@@ -27,7 +27,7 @@
       "heavy": "high"
     },
     "agent_overrides": {
-      "gsd-planner": "medium",
+      "gsd-planner": "high",
       "gsd-debugger": "medium",
       "gsd-roadmapper": "medium",
       "gsd-security-auditor": "medium",
